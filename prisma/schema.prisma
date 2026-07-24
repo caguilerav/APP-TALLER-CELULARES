@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TECHNICIAN
+  RECEPTIONIST
+}
+
+enum OrderStatus {
+  RECIBIDO
+  DIAGNOSTICO
+  ESPERANDO_REPUESTO
+  REPARANDO
+  LISTO
+  ENTREGADO
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   @db.VarChar(255) // Hash JWT
+  name      String
+  role      Role     @default(RECEPTIONIST)
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedOrders Order[] @relation("AssignedTechnician")
+}
+
+model Client {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders    Order[]
+}
+
+model Order {
+  id                 String       @id @default(uuid())
+  otNumber           String       @unique // OT-000001, etc.
+  clientId           String
+  client             Client       @relation(fields: [clientId], references: [id])
+  
+  // Device information
+  brand              String
+  model              String
+  color              String
+  imei               String?
+  
+  // Diagnostics & details
+  problem            String       @db.Text
+  accessories        String[]     // SIM, Memoria, Cargador, Caja, Funda, Otros
+  physicalState      String[]     // Pantalla rota, No enciende, Mojado, Golpes, Rayones
+  
+  // Financial info
+  estimatedCost      Float
+  advancePayment     Float        @default(0.0)
+  
+  // Status and technician
+  status             OrderStatus  @default(RECIBIDO)
+  assignedTechnicianId String?
+  assignedTechnician   User?      @relation("AssignedTechnician", fields: [assignedTechnicianId], references: [id])
+  
+  observaciones      String?      @db.Text
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  // Relations
+  payments           Payment[]
+  history            TimelineEvent[]
+}
+
+model Payment {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount    Float
+  method    String   // Efectivo, Tarjeta, Transferencia, Pago Móvil
+  notes     String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TimelineEvent {
+  id          String      @id @default(uuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      OrderStatus
+  description String      @db.Text
+  createdBy   String      // Nombre del usuario que registró el cambio
+  createdAt   DateTime    @default(now())
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Taller de Celulares",
+  "description": "Sistema moderno para administrar un taller de reparación de celulares con recepción de órdenes de servicio, seguimiento de estados y panel de control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
