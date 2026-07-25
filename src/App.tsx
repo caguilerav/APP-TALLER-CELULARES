@@ -19,7 +19,8 @@ import {
   BarChart3,
   Search,
   X,
-  Printer
+  Printer,
+  Settings
 } from 'lucide-react';
 import { User, Sale } from './types';
 import LoginView from './components/LoginView';
@@ -30,6 +31,7 @@ import OrderDetailView from './components/OrderDetailView';
 import InventoryView from './components/InventoryView';
 import SalesView from './components/SalesView';
 import ReportsView from './components/ReportsView';
+import SettingsView from './components/SettingsView';
 import GlobalSearchView from './components/GlobalSearchView';
 import { mockDb } from './db/mockDb';
 
@@ -198,18 +200,33 @@ export default function App() {
             )}
 
             {currentUser.role === 'ADMIN' && (
-              <button
-                id="desktop-tab-reportes"
-                onClick={() => { setActiveTab('reportes'); setActiveOrderId(null); }}
-                className={`w-full flex items-center space-x-3.5 py-3 px-4 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                  activeTab === 'reportes' && !activeOrderId
-                    ? 'bg-[#FACC15] text-black shadow-md'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <BarChart3 className="w-4.5 h-4.5" />
-                <span>Estadísticas / Reportes</span>
-              </button>
+              <>
+                <button
+                  id="desktop-tab-reportes"
+                  onClick={() => { setActiveTab('reportes'); setActiveOrderId(null); }}
+                  className={`w-full flex items-center space-x-3.5 py-3 px-4 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    activeTab === 'reportes' && !activeOrderId
+                      ? 'bg-[#FACC15] text-black shadow-md'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <BarChart3 className="w-4.5 h-4.5" />
+                  <span>Estadísticas / Reportes</span>
+                </button>
+
+                <button
+                  id="desktop-tab-configuracion"
+                  onClick={() => { setActiveTab('configuracion'); setActiveOrderId(null); }}
+                  className={`w-full flex items-center space-x-3.5 py-3 px-4 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    activeTab === 'configuracion' && !activeOrderId
+                      ? 'bg-[#FACC15] text-black shadow-md'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Settings className="w-4.5 h-4.5" />
+                  <span>Configuración</span>
+                </button>
+              </>
             )}
           </nav>
         </div>
@@ -331,6 +348,9 @@ export default function App() {
             {activeTab === 'reportes' && (
               <ReportsView />
             )}
+            {activeTab === 'configuracion' && (
+              <SettingsView currentUser={currentUser} />
+            )}
           </>
         )}
       </main>
@@ -404,6 +424,21 @@ export default function App() {
           >
             <ShoppingBag className="w-5 h-5" />
             <span className="text-[9px] mt-0.5">Vender</span>
+          </button>
+        )}
+
+        {currentUser.role === 'ADMIN' && (
+          <button
+            id="mobile-tab-configuracion"
+            onClick={() => { setActiveTab('configuracion'); setActiveOrderId(null); }}
+            className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'configuracion' && !activeOrderId
+                ? 'text-yellow-600 font-extrabold bg-[#FACC15]/10 px-2.5'
+                : 'text-gray-400 font-medium'
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+            <span className="text-[9px] mt-0.5">Ajustes</span>
           </button>
         )}
 

@@ -18,7 +18,8 @@ import {
   Sale,
   SaleItem,
   PaymentMethod,
-  DashboardStats
+  DashboardStats,
+  WorkshopSettings
 } from '../types';
 
 // Storage keys
@@ -32,6 +33,50 @@ const MODELS_KEY = 'taller_celulares_models_map_v1';
 const PRODUCTS_KEY = 'taller_celulares_products_v1';
 const MOVEMENTS_KEY = 'taller_celulares_movements_v1';
 const SALES_KEY = 'taller_celulares_sales_v1';
+const SETTINGS_KEY = 'taller_celulares_settings_v1';
+
+const DEFAULT_SETTINGS: WorkshopSettings = {
+  workshopName: 'SERVICIO TÉCNICO EXPRESS',
+  workshopSlogan: 'Soluciones Móviles & Accesorios',
+  phone: '777-12345 / 789-67890',
+  address: 'Av. Principal N° 450, Galería Central Local 12',
+  currencySymbol: 'Bs.',
+  ticketFooterMessage: '¡Gracias por su preferencia! Todo trabajo técnico cuenta con garantía.',
+  defaultWarrantyDays: 30,
+  taxPercentage: 0,
+
+  otPrefix: 'OT-',
+  requireTechnicianAssigned: false,
+  defaultAccessoriesList: ['SIM', 'Memoria SD', 'Cargador', 'Caja', 'Funda / Cover', 'S Pen / Stylus'],
+  defaultChecklist: ['Encendido', 'Pantalla / Táctil', 'Cámaras', 'Micrófono / Auricular', 'Carga / Puerto USB', 'Wi-Fi / Bluetooth', 'Lector SIM / Señal', 'Botones Físicos'],
+
+  defaultMinStock: 3,
+  allowNegativeStock: false,
+  categoriesList: [
+    'Pantallas',
+    'Glass',
+    'Baterías',
+    'Centros de carga',
+    'Flex',
+    'Cámaras',
+    'Tapas',
+    'Micrófonos',
+    'Parlantes',
+    'Botones',
+    'Conectores',
+    'IC',
+    'Herramientas',
+    'Accesorios',
+    'Otros'
+  ],
+
+  allowDiscounts: true,
+  maxDiscountPercentage: 20,
+  autoPrintTicket: true,
+  enabledPaymentMethods: ['Efectivo', 'Transferencia', 'QR', 'Tarjeta'],
+
+  requireAdminPinForDelete: true
+};
 
 const DEFAULT_BRANDS = [
   'Apple', 'Samsung', 'Xiaomi', 'Motorola', 'Huawei', 'Oppo', 'Realme', 'ZTE', 'Infinix'
@@ -1056,5 +1101,125 @@ export const mockDb = {
     sales.splice(idx, 1);
     this.saveSales(sales);
     return true;
+  },
+
+  // === SETTINGS OPERATIONS ===
+
+  getSettings(): WorkshopSettings {
+    const data = localStorage.getItem(SETTINGS_KEY);
+    if (!data) {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS));
+      return DEFAULT_SETTINGS;
+    }
+    try {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+    } catch (e) {
+      return DEFAULT_SETTINGS;
+    }
+  },
+
+  saveSettings(newSettings: WorkshopSettings) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
+  },
+
+  // === USER MANAGEMENT OPERATIONS ===
+
+  createUser(userData: Omit<User, 'id' | 'createdAt'>): User {
+    const users = this.getUsers();
+    const newUser: User = {
+      ...userData,
+      id: `usr-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    users.push(newUser);
+    this.saveUsers(users);
+    return newUser;
+  },
+
+  updateUser(id: string, updatedFields: Partial<User>): User | null {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return null;
+    const updatedUser = { ...users[idx], ...updatedFields };
+    users[idx] = updatedUser;
+    this.saveUsers(users);
+    return updatedUser;
+  },
+
+  deleteUser(id: string): boolean {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return false;
+    users.splice(idx, 1);
+    this.saveUsers(users);
+    return true;
+  },
+
+  // === BRANDS & MODELS MANAGEMENT ===
+
+  deleteBrand(brandName: string): boolean {
+    const brands = this.getBrands();
+    const idx = brands.findIndex(b => b.toLowerCase() === brandName.toLowerCase());
+    if (idx === -1) return false;
+    brands.splice(idx, 1);
+    localStorage.setItem(BRANDS_KEY, JSON.stringify(brands));
+
+    const modelsMap = this.getModelsMap();
+    if (modelsMap[brandName]) {
+      delete modelsMap[brandName];
+      localStorage.setItem(MODELS_KEY, JSON.stringify(modelsMap));
+    }
+    return true;
+  },
+
+  deleteModel(brandName: string, modelName: string): boolean {
+    const modelsMap = this.getModelsMap();
+    if (!modelsMap[brandName]) return false;
+    const idx = modelsMap[brandName].findIndex(m => m.toLowerCase() === modelName.toLowerCase());
+    if (idx === -1) return false;
+    modelsMap[brandName].splice(idx, 1);
+    localStorage.setItem(MODELS_KEY, JSON.stringify(modelsMap));
+    return true;
+  },
+
+  // === BACKUP & RESTORE ===
+
+  exportBackupData(): string {
+    const backup = {
+      timestamp: new Date().toISOString(),
+      users: this.getUsers(),
+      clients: this.getClients(),
+      orders: this.getOrders(),
+      payments: this.getPayments(),
+      events: this.getEvents(),
+      brands: this.getBrands(),
+      modelsMap: this.getModelsMap(),
+      products: this.getProducts(),
+      movements: this.getMovements(),
+      sales: this.getSales(),
+      settings: this.getSettings()
+    };
+    return JSON.stringify(backup, null, 2);
+  },
+
+  importBackupData(jsonData: string): boolean {
+    try {
+      const data = JSON.parse(jsonData);
+      if (data.users && Array.isArray(data.users)) this.saveUsers(data.users);
+      if (data.clients && Array.isArray(data.clients)) this.saveClients(data.clients);
+      if (data.orders && Array.isArray(data.orders)) this.saveOrders(data.orders);
+      if (data.payments && Array.isArray(data.payments)) this.savePayments(data.payments);
+      if (data.events && Array.isArray(data.events)) this.saveEvents(data.events);
+      if (data.brands && Array.isArray(data.brands)) localStorage.setItem(BRANDS_KEY, JSON.stringify(data.brands));
+      if (data.modelsMap && typeof data.modelsMap === 'object') localStorage.setItem(MODELS_KEY, JSON.stringify(data.modelsMap));
+      if (data.products && Array.isArray(data.products)) this.saveProducts(data.products);
+      if (data.movements && Array.isArray(data.movements)) this.saveMovements(data.movements);
+      if (data.sales && Array.isArray(data.sales)) this.saveSales(data.sales);
+      if (data.settings && typeof data.settings === 'object') this.saveSettings(data.settings);
+      return true;
+    } catch (e) {
+      console.error('Error al importar copia de seguridad:', e);
+      return false;
+    }
   }
 };

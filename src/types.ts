@@ -198,3 +198,36 @@ export interface Sale {
   date: string;
   user: string; // Name of user who registered the sale
 }
+
+// === WORKSHOP SETTINGS INTERFACE ===
+export interface WorkshopSettings {
+  // General & Workshop Info
+  workshopName: string;
+  workshopSlogan: string;
+  phone: string;
+  address: string;
+  currencySymbol: string;
+  ticketFooterMessage: string;
+  defaultWarrantyDays: number;
+  taxPercentage: number;
+
+  // Recepción & Órdenes
+  otPrefix: string;
+  requireTechnicianAssigned: boolean;
+  defaultAccessoriesList: string[];
+  defaultChecklist: string[];
+
+  // Inventario
+  defaultMinStock: number;
+  allowNegativeStock: boolean;
+  categoriesList: string[];
+
+  // Ventas & Caja
+  allowDiscounts: boolean;
+  maxDiscountPercentage: number;
+  autoPrintTicket: boolean;
+  enabledPaymentMethods: string[];
+
+  // Seguridad & Preferencias
+  requireAdminPinForDelete: boolean;
+}
