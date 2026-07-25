@@ -33,6 +33,7 @@ import SalesView from './components/SalesView';
 import ReportsView from './components/ReportsView';
 import SettingsView from './components/SettingsView';
 import GlobalSearchView from './components/GlobalSearchView';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { mockDb } from './db/mockDb';
 
 export default function App() {
@@ -93,11 +94,18 @@ export default function App() {
   };
 
   if (!currentUser) {
-    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <>
+        <PWAInstallPrompt />
+        <LoginView onLoginSuccess={handleLoginSuccess} />
+      </>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] text-gray-900 flex flex-col md:flex-row antialiased font-sans">
+    <div className="min-h-screen bg-[#F9F9F9] text-gray-900 flex flex-col antialiased font-sans">
+      <PWAInstallPrompt />
+      <div className="flex-1 flex flex-col md:flex-row">
       
       {/* DESKTOP SIDEBAR (Visible only on md: screens and larger) */}
       <aside className="hidden md:flex md:w-64 bg-[#111111] text-white flex-col justify-between p-5 shrink-0 select-none">
@@ -545,6 +553,7 @@ export default function App() {
         </div>
       )}
 
+      </div>
     </div>
   );
 }
