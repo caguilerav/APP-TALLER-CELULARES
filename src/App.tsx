@@ -104,7 +104,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] text-gray-900 flex flex-col antialiased font-sans">
-      <PWAInstallPrompt />
       <div className="flex-1 flex flex-col md:flex-row">
       
       {/* DESKTOP SIDEBAR (Visible only on md: screens and larger) */}
@@ -274,43 +273,48 @@ export default function App() {
         </div>
       </aside>
 
-      {/* MOBILE HEADER (Sticky top logo/user action bar) */}
-      <header className="md:hidden bg-[#111111] text-white py-3 px-4 flex items-center justify-between shadow-md select-none sticky top-0 z-40">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-[#FACC15] rounded-lg flex items-center justify-center shadow" onClick={() => setIsSearchOpen(true)}>
-            <Smartphone className="w-5 h-5 text-black" />
-          </div>
-          <span className="font-extrabold text-sm uppercase tracking-wide">Taller Celulares</span>
-        </div>
-
-        <div className="flex items-center space-x-2.5">
-          {/* Mobile Global Search trigger */}
-          <button
-            onClick={() => setIsSearchOpen(true)}
-            className="p-2 bg-white/10 hover:bg-[#FACC15] hover:text-black rounded-xl transition-all text-white cursor-pointer"
-            title="Buscador Inteligente"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-
-          <div className="text-right text-[10px] text-gray-400 font-medium">
-            <span className="block font-bold text-white leading-none">{currentUser.name.split(' ')[0]}</span>
-            <span>{currentUser.role === 'ADMIN' ? 'Admin' : currentUser.role === 'RECEPTIONIST' ? 'Recep' : 'Técnico'}</span>
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* MOBILE HEADER (Sticky top logo/user action bar) */}
+        <header className="md:hidden bg-[#111111] text-white py-3 px-4 flex items-center justify-between shadow-md select-none sticky top-0 z-40">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-[#FACC15] rounded-lg flex items-center justify-center shadow" onClick={() => setIsSearchOpen(true)}>
+              <Smartphone className="w-5 h-5 text-black" />
+            </div>
+            <span className="font-extrabold text-sm uppercase tracking-wide">Taller Celulares</span>
           </div>
 
-          <button
-            id="mobile-logout"
-            onClick={handleLogout}
-            className="p-2 bg-white/10 hover:bg-red-600 rounded-xl transition-all text-gray-300 hover:text-white cursor-pointer"
-            title="Cerrar sesión"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+          <div className="flex items-center space-x-2.5">
+            {/* Mobile Global Search trigger */}
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="p-2 bg-white/10 hover:bg-[#FACC15] hover:text-black rounded-xl transition-all text-white cursor-pointer"
+              title="Buscador Inteligente"
+            >
+              <Search className="w-4 h-4" />
+            </button>
 
-      {/* MAIN LAYOUT VIEW WRAPPER */}
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
+            <div className="text-right text-[10px] text-gray-400 font-medium">
+              <span className="block font-bold text-white leading-none">{currentUser.name.split(' ')[0]}</span>
+              <span>{currentUser.role === 'ADMIN' ? 'Admin' : currentUser.role === 'RECEPTIONIST' ? 'Recep' : 'Técnico'}</span>
+            </div>
+
+            <button
+              id="mobile-logout"
+              onClick={handleLogout}
+              className="p-2 bg-white/10 hover:bg-red-600 rounded-xl transition-all text-gray-300 hover:text-white cursor-pointer"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* PWA INSTALLATION BANNER (Placed directly below top header) */}
+        <PWAInstallPrompt />
+
+        {/* MAIN LAYOUT VIEW WRAPPER */}
+        <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
         {activeOrderId ? (
           <OrderDetailView
             orderId={activeOrderId}
@@ -553,6 +557,7 @@ export default function App() {
         </div>
       )}
 
+      </div>
       </div>
     </div>
   );

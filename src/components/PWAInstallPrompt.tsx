@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Smartphone, X, CheckCircle2, Share, PlusSquare, Sparkles, Monitor } from 'lucide-react';
+import { Download, Smartphone, X, CheckCircle2, Share, PlusSquare, Monitor } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,33 +11,60 @@ export default function PWAInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [isIOS, setIsIOS] = useState<boolean>(false);
   const [showIOSModal, setShowIOSModal] = useState<boolean>(false);
+  const [showInstallHelpModal, setShowInstallHelpModal] = useState<boolean>(false);
   const [showBanner, setShowBanner] = useState<boolean>(true);
   const [installedSuccess, setInstalledSuccess] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if app is running in standalone mode (already installed as PWA)
+    // Check if app is running in standalone mode (already installed as PWA) or previously installed
     const isStandaloneMode =
       window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: minimal-ui)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
-      document.referrer.includes('android-app://');
+      document.referrer.includes('android-app://') ||
+      localStorage.getItem('pwa_app_installed') === 'true';
 
-    setIsStandalone(isStandaloneMode);
+    if (isStandaloneMode) {
+      setIsStandalone(true);
+      setShowBanner(false);
+    }
+
+    // Check if user manually dismissed banner
+    if (localStorage.getItem('pwa_banner_dismissed') === 'true') {
+      setShowBanner(false);
+    }
 
     // Detect iOS / Safari
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIPhoneOrIPad = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIPhoneOrIPad);
 
+    // Listen for standalone display mode changes dynamically
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleDisplayModeChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        setIsStandalone(true);
+        setShowBanner(false);
+        localStorage.setItem('pwa_app_installed', 'true');
+      }
+    };
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleDisplayModeChange);
+    }
+
     // Capture beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      console.log('[PWA] beforeinstallprompt event fired and captured');
+      console.log('[PWA] beforeinstallprompt event captured');
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
     // Capture appinstalled event
     const handleAppInstalled = () => {
       console.log('[PWA] App installed successfully');
+      localStorage.setItem('pwa_app_installed', 'true');
+      setIsStandalone(true);
+      setShowBanner(false);
       setInstalledSuccess(true);
       setDeferredPrompt(null);
       setTimeout(() => setInstalledSuccess(false), 5000);
@@ -49,6 +76,9 @@ export default function PWAInstallPrompt() {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleDisplayModeChange);
+      }
     };
   }, []);
 
@@ -58,10 +88,13 @@ export default function PWAInstallPrompt() {
         await deferredPrompt.prompt();
         const choiceResult = await deferredPrompt.userChoice;
         if (choiceResult.outcome === 'accepted') {
-          console.log('[PWA] User accepted the installation prompt');
+          console.log('[PWA] User accepted installation');
+          localStorage.setItem('pwa_app_installed', 'true');
+          setIsStandalone(true);
+          setShowBanner(false);
           setInstalledSuccess(true);
         } else {
-          console.log('[PWA] User dismissed the installation prompt');
+          console.log('[PWA] User dismissed install prompt');
         }
         setDeferredPrompt(null);
       } catch (err) {
@@ -69,52 +102,58 @@ export default function PWAInstallPrompt() {
       }
     } else if (isIOS) {
       setShowIOSModal(true);
+    } else {
+      setShowInstallHelpModal(true);
     }
   };
 
-  const [showInstallHelpModal, setShowInstallHelpModal] = useState<boolean>(false);
+  const handleDismissBanner = () => {
+    setShowBanner(false);
+    localStorage.setItem('pwa_banner_dismissed', 'true');
+  };
 
-  // Always show banner unless dismissed
+  // If already installed or running as standalone PWA or banner dismissed, don't show prompt
+  if (isStandalone) {
+    return null;
+  }
+
   return (
     <>
-      {/* Top Banner for PWA Installation */}
+      {/* Translucent Cloud Banner (Nube semi-transparente) */}
       {showBanner && (
-        <div className="bg-[#0D0D0D] text-white px-3.5 py-2 border-b border-[#FACC15]/30 shadow-lg flex items-center justify-between gap-3 z-50 sticky top-0 backdrop-blur-md">
-          {/* Left Side: App Icon Badge & Title */}
+        <div className="mx-3 my-2 bg-black/75 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-2.5 px-3.5 flex items-center justify-between gap-3 text-white transition-all animate-fade-in z-30">
+          {/* Left Side: App Icon & Title */}
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FACC15] to-amber-500 text-black font-black flex items-center justify-center shrink-0 shadow-sm shadow-yellow-500/20">
-              <Smartphone className="w-4 h-4 text-black" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FACC15] to-amber-500 text-black font-black flex items-center justify-center shrink-0 shadow-md shadow-yellow-500/20">
+              <Smartphone className="w-4.5 h-4.5 text-black" />
             </div>
-            <div className="flex items-center space-x-2 min-w-0">
-              <span className="text-xs font-black tracking-wide text-white truncate">
-                Taller Express
-              </span>
-              <span className="hidden sm:inline-block bg-[#FACC15]/15 text-[#FACC15] border border-[#FACC15]/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                App Nativa
-              </span>
+            <div className="min-w-0">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-xs font-extrabold tracking-wide text-white truncate">
+                  Taller Express
+                </span>
+                <span className="bg-[#FACC15]/20 text-[#FACC15] border border-[#FACC15]/40 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                  App
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-300 font-medium truncate">
+                Instala la app nativa en tu dispositivo
+              </p>
             </div>
           </div>
 
           {/* Right Side: Install Button & Close */}
           <div className="flex items-center space-x-2 shrink-0">
             <button
-              onClick={() => {
-                if (deferredPrompt) {
-                  handleInstallClick();
-                } else if (isIOS) {
-                  setShowIOSModal(true);
-                } else {
-                  setShowInstallHelpModal(true);
-                }
-              }}
-              className="bg-[#FACC15] hover:bg-yellow-400 text-black font-black px-3.5 py-1.5 rounded-lg text-xs flex items-center space-x-1.5 shadow-md shadow-yellow-500/10 transition-all transform active:scale-95 hover:scale-[1.02] cursor-pointer uppercase tracking-wider"
+              onClick={handleInstallClick}
+              className="bg-[#FACC15] hover:bg-yellow-400 text-black font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center space-x-1.5 shadow-md shadow-yellow-500/20 transition-all transform active:scale-95 hover:scale-[1.02] cursor-pointer uppercase tracking-wider"
             >
               <Download className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Instalar App</span>
             </button>
 
             <button
-              onClick={() => setShowBanner(false)}
+              onClick={handleDismissBanner}
               className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
               title="Cerrar aviso"
             >
@@ -128,7 +167,7 @@ export default function PWAInstallPrompt() {
       {installedSuccess && (
         <div className="fixed bottom-6 right-6 z-50 bg-black text-[#FACC15] border border-[#FACC15] px-5 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-3 text-xs font-black animate-slide-in">
           <CheckCircle2 className="w-5 h-5 text-[#FACC15]" />
-          <span>¡Aplicación instalada con éxito! Ya puedes abrirla desde tu pantalla principal.</span>
+          <span>¡Aplicación instalada con éxito! Ya está disponible en tu pantalla principal.</span>
         </div>
       )}
 
@@ -254,3 +293,4 @@ export default function PWAInstallPrompt() {
     </>
   );
 }
+
