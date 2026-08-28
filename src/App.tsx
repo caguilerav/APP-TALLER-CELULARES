@@ -22,7 +22,7 @@ import {
   Printer,
   Settings
 } from 'lucide-react';
-import { User, Sale } from './types';
+import { User, Sale, WorkshopSettings } from './types';
 import LoginView from './components/LoginView';
 import DashboardView from './components/DashboardView';
 import ReceptionView from './components/ReceptionView';
@@ -44,10 +44,34 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [selectedSaleForTicket, setSelectedSaleForTicket] = useState<Sale | null>(null);
   
+  // Workshop dynamic settings
+  const [workshopSettings, setWorkshopSettings] = useState<WorkshopSettings>(() => mockDb.getSettings());
+
   // A simple counter to trigger state re-fetching in list view when operations occur
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
   useEffect(() => {
+    // Apply saved zoom level
+    try {
+      const savedZoom = localStorage.getItem('taller_celulares_zoom');
+      const settingsZoom = mockDb.getSettings().appZoom;
+      const zoomVal = savedZoom ? Number(savedZoom) : (settingsZoom || 100);
+      if (zoomVal && zoomVal >= 60 && zoomVal <= 180) {
+        (document.documentElement.style as unknown as { zoom: string }).zoom = `${zoomVal / 100}`;
+      }
+    } catch (e) {
+      console.warn('Error setting initial zoom:', e);
+    }
+
+    // Listen for real-time workshop settings updates across the entire app
+    const handleSettingsUpdated = () => {
+      const updated = mockDb.getSettings();
+      setWorkshopSettings(updated);
+      setRefreshTrigger(prev => prev + 1);
+    };
+    window.addEventListener('workshop_settings_saved', handleSettingsUpdated);
+    window.addEventListener('storage', handleSettingsUpdated);
+
     // Check if user session exists in localStorage
     const savedUser = localStorage.getItem('taller_celulares_active_user');
     if (savedUser) {
@@ -57,6 +81,11 @@ export default function App() {
         localStorage.removeItem('taller_celulares_active_user');
       }
     }
+
+    return () => {
+      window.removeEventListener('workshop_settings_saved', handleSettingsUpdated);
+      window.removeEventListener('storage', handleSettingsUpdated);
+    };
   }, []);
 
   const handleLoginSuccess = (user: User) => {
@@ -111,12 +140,16 @@ export default function App() {
         <div className="space-y-8">
           {/* Sidebar Brand Logo */}
           <div className="flex items-center space-x-3 px-2">
-            <div className="w-10 h-10 bg-[#FACC15] rounded-xl flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 bg-[#FACC15] rounded-xl flex items-center justify-center shadow-md shrink-0">
               <Smartphone className="w-6 h-6 text-black" />
             </div>
-            <div>
-              <h1 className="text-sm font-black tracking-tight text-white uppercase">Taller Celulares</h1>
-              <span className="text-[10px] text-[#FACC15] font-bold">Panel Administrativo</span>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm font-black tracking-tight text-white uppercase truncate">
+                {workshopSettings.workshopName || 'Taller Celulares'}
+              </h1>
+              <span className="text-[10px] text-[#FACC15] font-bold truncate block">
+                {workshopSettings.workshopSlogan || 'Panel Administrativo'}
+              </span>
             </div>
           </div>
 
@@ -277,11 +310,13 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* MOBILE HEADER (Sticky top logo/user action bar) */}
         <header className="md:hidden bg-[#111111] text-white py-3 px-4 flex items-center justify-between shadow-md select-none sticky top-0 z-40">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-[#FACC15] rounded-lg flex items-center justify-center shadow" onClick={() => setIsSearchOpen(true)}>
+          <div className="flex items-center space-x-2 min-w-0">
+            <div className="w-8 h-8 bg-[#FACC15] rounded-lg flex items-center justify-center shadow shrink-0" onClick={() => setIsSearchOpen(true)}>
               <Smartphone className="w-5 h-5 text-black" />
             </div>
-            <span className="font-extrabold text-sm uppercase tracking-wide">Taller Celulares</span>
+            <span className="font-extrabold text-sm uppercase tracking-wide truncate max-w-[170px]">
+              {workshopSettings.workshopName || 'Taller Celulares'}
+            </span>
           </div>
 
           <div className="flex items-center space-x-2.5">
@@ -361,7 +396,13 @@ export default function App() {
               <ReportsView />
             )}
             {activeTab === 'configuracion' && (
-              <SettingsView currentUser={currentUser} />
+              <SettingsView
+                currentUser={currentUser}
+                onSettingsSaved={(updated) => {
+                  setWorkshopSettings(updated);
+                  setRefreshTrigger(prev => prev + 1);
+                }}
+              />
             )}
           </>
         )}

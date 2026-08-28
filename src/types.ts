@@ -230,4 +230,7 @@ export interface WorkshopSettings {
 
   // Seguridad & Preferencias
   requireAdminPinForDelete: boolean;
+
+  // Visual & Zoom
+  appZoom?: number; // Porcentaje de zoom global (70 a 150)
 }

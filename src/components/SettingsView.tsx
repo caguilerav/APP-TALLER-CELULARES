@@ -22,22 +22,26 @@ import {
   Lock,
   UserCheck,
   UserX,
-  HelpCircle
+  HelpCircle,
+  Sliders
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
 import { User, UserRole, WorkshopSettings } from '../types';
+import ZoomKnobControl from './ZoomKnobControl';
 
 interface SettingsViewProps {
   currentUser: User;
+  onSettingsSaved?: (updatedSettings: WorkshopSettings) => void;
 }
 
 type SettingsTab = 'GENERAL' | 'RECEPTION' | 'INVENTORY' | 'SALES' | 'BRANDS' | 'USERS' | 'BACKUP';
 
-export default function SettingsView({ currentUser }: SettingsViewProps) {
+export default function SettingsView({ currentUser, onSettingsSaved }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('GENERAL');
   
   // Settings state
   const [settings, setSettings] = useState<WorkshopSettings>(mockDb.getSettings());
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   
   // Users state
   const [users, setUsers] = useState<User[]>(mockDb.getUsers());
@@ -77,8 +81,58 @@ export default function SettingsView({ currentUser }: SettingsViewProps) {
   }, []);
 
   const handleSaveSettings = () => {
-    mockDb.saveSettings(settings);
-    showSuccess('¡Configuración guardada correctamente!');
+    setIsSaving(true);
+    try {
+      // 1. Save general settings
+      mockDb.saveSettings(settings);
+
+      // 2. Save brands & models
+      mockDb.saveBrands(brands);
+      mockDb.saveModelsMap(modelsMap);
+
+      // 3. Save users
+      mockDb.saveUsers(users);
+
+      // 4. Update document title if workshop name exists
+      if (settings.workshopName) {
+        document.title = `${settings.workshopName} - Gestión de Servicio Técnico`;
+      }
+
+      // 5. Dispatch global events for instant app-wide synchronization
+      window.dispatchEvent(new CustomEvent('workshop_settings_saved', { detail: settings }));
+      window.dispatchEvent(new Event('storage'));
+
+      if (onSettingsSaved) {
+        onSettingsSaved(settings);
+      }
+
+      showSuccess('¡Configuración guardada y aplicada a toda la aplicación con éxito!');
+    } catch (e) {
+      console.error('Error saving settings:', e);
+      showError('Hubo un error al guardar la configuración');
+    } finally {
+      setTimeout(() => setIsSaving(false), 500);
+    }
+  };
+
+  // Keyboard shortcut Ctrl+S / Cmd+S to save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveSettings();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [settings, brands, modelsMap, users, onSettingsSaved]);
+
+  const handleZoomChange = (newZoom: number) => {
+    setSettings(prev => {
+      const updated = { ...prev, appZoom: newZoom };
+      mockDb.saveSettings(updated);
+      return updated;
+    });
   };
 
   const showSuccess = (msg: string) => {
@@ -306,10 +360,10 @@ export default function SettingsView({ currentUser }: SettingsViewProps) {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in pb-28 md:pb-24">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#111111] to-[#222222] text-white p-6 md:p-8 rounded-3xl shadow-md border border-gray-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-[#111111] to-[#222222] text-white p-6 md:p-8 rounded-3xl shadow-md border border-gray-800">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#FACC15]/10 border border-[#FACC15]/30 px-3 py-1 rounded-full text-[#FACC15] text-xs font-bold uppercase tracking-wider mb-2">
             <Lock className="w-3.5 h-3.5" />
@@ -322,14 +376,6 @@ export default function SettingsView({ currentUser }: SettingsViewProps) {
             Personaliza los datos del taller, formatos de recepción, parámetros de inventario, caja y cuentas de personal.
           </p>
         </div>
-
-        <button
-          onClick={handleSaveSettings}
-          className="bg-[#FACC15] text-black font-black px-5 py-3 rounded-2xl hover:bg-yellow-400 transition-all flex items-center space-x-2 shadow-lg shadow-yellow-500/10 cursor-pointer text-xs uppercase tracking-wide self-stretch md:self-auto justify-center"
-        >
-          <Save className="w-4 h-4" />
-          <span>Guardar Cambios</span>
-        </button>
       </div>
 
       {/* Floating Success / Error Notification */}
@@ -438,113 +484,121 @@ export default function SettingsView({ currentUser }: SettingsViewProps) {
 
       {/* 1. GENERAL & WORKSHOP CATEGORY */}
       {activeTab === 'GENERAL' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-3xl border border-gray-150 shadow-xs space-y-4">
-            <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
-              <Store className="w-5 h-5 text-[#E2B810]" />
-              <h2 className="text-sm font-black text-gray-900 uppercase">Identificación del Negocio</h2>
-            </div>
+        <div className="space-y-6">
+          {/* Featured Zoom Knob Control */}
+          <ZoomKnobControl 
+            currentZoom={settings.appZoom || 100}
+            onZoomChange={handleZoomChange}
+          />
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Nombre del Taller / Empresa</label>
-                <input
-                  type="text"
-                  value={settings.workshopName}
-                  onChange={(e) => setSettings({ ...settings, workshopName: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-900 focus:bg-white focus:border-black outline-none"
-                  placeholder="Ej: Servicio Técnico Express"
-                />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-3xl border border-gray-150 shadow-xs space-y-4">
+              <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
+                <Store className="w-5 h-5 text-[#E2B810]" />
+                <h2 className="text-sm font-black text-gray-900 uppercase">Identificación del Negocio</h2>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Lema / Eslogan</label>
-                <input
-                  type="text"
-                  value={settings.workshopSlogan}
-                  onChange={(e) => setSettings({ ...settings, workshopSlogan: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none"
-                  placeholder="Ej: Soluciones Móviles & Accesorios"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Teléfono(s) de Contacto</label>
-                <input
-                  type="text"
-                  value={settings.phone}
-                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none font-mono"
-                  placeholder="Ej: 777-12345 / 789-67890"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Dirección Física</label>
-                <textarea
-                  rows={2}
-                  value={settings.address}
-                  onChange={(e) => setSettings({ ...settings, address: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none resize-none"
-                  placeholder="Ej: Av. Principal N° 450, Galería Central"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl border border-gray-150 shadow-xs space-y-4">
-            <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
-              <ShieldCheck className="w-5 h-5 text-[#E2B810]" />
-              <h2 className="text-sm font-black text-gray-900 uppercase">Parámetros Financieros & Garantía</h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Símbolo de Moneda</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Nombre del Taller / Empresa</label>
                   <input
                     type="text"
-                    value={settings.currencySymbol}
-                    onChange={(e) => setSettings({ ...settings, currencySymbol: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-900 focus:bg-white focus:border-black outline-none font-mono"
-                    placeholder="Ej: Bs. o $"
+                    value={settings.workshopName}
+                    onChange={(e) => setSettings({ ...settings, workshopName: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-900 focus:bg-white focus:border-black outline-none"
+                    placeholder="Ej: Servicio Técnico Express"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Garantía por Defecto (Días)</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Lema / Eslogan</label>
+                  <input
+                    type="text"
+                    value={settings.workshopSlogan}
+                    onChange={(e) => setSettings({ ...settings, workshopSlogan: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none"
+                    placeholder="Ej: Soluciones Móviles & Accesorios"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Teléfono(s) de Contacto</label>
+                  <input
+                    type="text"
+                    value={settings.phone}
+                    onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none font-mono"
+                    placeholder="Ej: 777-12345 / 789-67890"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Dirección Física</label>
+                  <textarea
+                    rows={2}
+                    value={settings.address}
+                    onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none resize-none"
+                    placeholder="Ej: Av. Principal N° 450, Galería Central"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-gray-150 shadow-xs space-y-4">
+              <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
+                <ShieldCheck className="w-5 h-5 text-[#E2B810]" />
+                <h2 className="text-sm font-black text-gray-900 uppercase">Parámetros Financieros & Garantía</h2>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Símbolo de Moneda</label>
+                    <input
+                      type="text"
+                      value={settings.currencySymbol}
+                      onChange={(e) => setSettings({ ...settings, currencySymbol: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-900 focus:bg-white focus:border-black outline-none font-mono"
+                      placeholder="Ej: Bs. o $"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Garantía por Defecto (Días)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={settings.defaultWarrantyDays}
+                      onChange={(e) => setSettings({ ...settings, defaultWarrantyDays: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-900 focus:bg-white focus:border-black outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Impuesto Aplicable (%)</label>
                   <input
                     type="number"
                     min="0"
-                    value={settings.defaultWarrantyDays}
-                    onChange={(e) => setSettings({ ...settings, defaultWarrantyDays: parseInt(e.target.value) || 0 })}
+                    max="100"
+                    value={settings.taxPercentage}
+                    onChange={(e) => setSettings({ ...settings, taxPercentage: parseFloat(e.target.value) || 0 })}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-900 focus:bg-white focus:border-black outline-none font-mono"
                   />
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">Ingrese 0 si los precios mostrados son exentos o finales.</span>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Impuesto Aplicable (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={settings.taxPercentage}
-                  onChange={(e) => setSettings({ ...settings, taxPercentage: parseFloat(e.target.value) || 0 })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-900 focus:bg-white focus:border-black outline-none font-mono"
-                />
-                <span className="text-[10px] text-gray-400 mt-0.5 block">Ingrese 0 si los precios mostrados son exentos o finales.</span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Mensaje en Pie de Comprobantes Impresos</label>
-                <textarea
-                  rows={3}
-                  value={settings.ticketFooterMessage}
-                  onChange={(e) => setSettings({ ...settings, ticketFooterMessage: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none resize-none"
-                  placeholder="Ej: Todo trabajo técnico cuenta con garantía de 30 días. No se responden por equipos dejados más de 90 días."
-                />
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Mensaje en Pie de Comprobantes Impresos</label>
+                  <textarea
+                    rows={3}
+                    value={settings.ticketFooterMessage}
+                    onChange={(e) => setSettings({ ...settings, ticketFooterMessage: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none resize-none"
+                    placeholder="Ej: Todo trabajo técnico cuenta con garantía de 30 días. No se responden por equipos dejados más de 90 días."
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1262,6 +1316,29 @@ export default function SettingsView({ currentUser }: SettingsViewProps) {
           </div>
         </div>
       )}
+
+      {/* COMPACT FLOATING SAVE BUTTON - Centered directly above the bottom navigation bar */}
+      <div className="fixed bottom-[72px] md:bottom-7 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
+        <button
+          type="button"
+          onClick={handleSaveSettings}
+          disabled={isSaving}
+          className="bg-[#FACC15] hover:bg-yellow-400 active:scale-95 text-black font-black text-xs uppercase px-5 py-2.5 rounded-full transition-all flex items-center space-x-2 shadow-[0_10px_30px_rgba(0,0,0,0.45)] border-2 border-black/15 cursor-pointer disabled:opacity-75 whitespace-nowrap"
+          title="Guardar Cambios (Ctrl+S)"
+        >
+          {isSaving ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-black" />
+              <span>Guardando...</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 text-black" />
+              <span>Guardar Cambios</span>
+            </>
+          )}
+        </button>
+      </div>
 
     </div>
   );

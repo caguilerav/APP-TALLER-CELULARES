@@ -75,7 +75,8 @@ const DEFAULT_SETTINGS: WorkshopSettings = {
   autoPrintTicket: true,
   enabledPaymentMethods: ['Efectivo', 'Transferencia', 'QR', 'Tarjeta'],
 
-  requireAdminPinForDelete: true
+  requireAdminPinForDelete: true,
+  appZoom: 100
 };
 
 const DEFAULT_BRANDS = [
@@ -622,6 +623,10 @@ export const mockDb = {
     return JSON.parse(data);
   },
 
+  saveBrands(brands: string[]) {
+    localStorage.setItem(BRANDS_KEY, JSON.stringify(brands));
+  },
+
   getModelsMap(): Record<string, string[]> {
     const data = localStorage.getItem(MODELS_KEY);
     if (!data) {
@@ -629,6 +634,10 @@ export const mockDb = {
       return DEFAULT_MODELS_MAP;
     }
     return JSON.parse(data);
+  },
+
+  saveModelsMap(modelsMap: Record<string, string[]>) {
+    localStorage.setItem(MODELS_KEY, JSON.stringify(modelsMap));
   },
 
   addBrand(brand: string) {
