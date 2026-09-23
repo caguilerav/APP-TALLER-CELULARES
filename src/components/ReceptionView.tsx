@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Smartphone, 
   Check, 
@@ -19,11 +19,16 @@ import {
   Image as ImageIcon,
   Search,
   Sparkles,
-  Wrench
+  Wrench,
+  Pencil,
+  History,
+  Phone,
+  Boxes
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
 import { Order, OrderStatus, User, UsedSparePart, Client, Product } from '../types';
 import PatternLockDrawer from './PatternLockDrawer';
+import { SparePartsInventoryModal } from './SparePartsInventoryModal';
 
 interface ReceptionViewProps {
   currentUser: User;
@@ -44,11 +49,20 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
 
-  // Modal Client Form State
+  // Modal Client Form State (Add)
   const [modalClientName, setModalClientName] = useState('');
   const [modalClientPhone, setModalClientPhone] = useState('');
   const [modalReferencePhone, setModalReferencePhone] = useState('');
   const [modalReferenceRelationship, setModalReferenceRelationship] = useState('');
+  const [showModalClientSuggestions, setShowModalClientSuggestions] = useState(true);
+
+  // Modal Client Form State (Edit)
+  const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
+  const [editClientName, setEditClientName] = useState('');
+  const [editClientPhone, setEditClientPhone] = useState('');
+  const [editReferencePhone, setEditReferencePhone] = useState('');
+  const [editReferenceRelationship, setEditReferenceRelationship] = useState('');
+  const [clientSuccessFeedback, setClientSuccessFeedback] = useState('');
   
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
@@ -137,12 +151,40 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
   const [observaciones, setObservaciones] = useState('');
 
   // Spare Parts States
+  const [isLaborOnly, setIsLaborOnly] = useState(false);
   const [spareParts, setSpareParts] = useState<UsedSparePart[]>([]);
   const [newPartName, setNewPartName] = useState('');
   const [newPartType, setNewPartType] = useState<'INVENTORY' | 'EXTERNAL'>('INVENTORY');
   const [newPartCost, setNewPartCost] = useState('');
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [isSparePartsInventoryModalOpen, setIsSparePartsInventoryModalOpen] = useState(false);
+  const [sparePartSuccessFeedback, setSparePartSuccessFeedback] = useState('');
+
+  // Handle direct selection from the floating inventory modal
+  const handleSelectProductFromInventoryModal = (product: Product) => {
+    if (product.stock <= 0) {
+      alert('Este repuesto no cuenta con stock disponible en este momento.');
+      return;
+    }
+    if (spareParts.some(p => p.type === 'INVENTORY' && p.productId === product.id)) {
+      alert('Este repuesto del inventario ya está agregado en la lista.');
+      return;
+    }
+    setSpareParts([
+      ...spareParts,
+      {
+        type: 'INVENTORY',
+        name: `${product.name} (${product.compatibleModel || 'Universal'})`,
+        productId: product.id,
+        quantity: 1
+      }
+    ]);
+    setSelectedProductId(product.id);
+    setIsSparePartsInventoryModalOpen(false);
+    setSparePartSuccessFeedback(`¡Repuesto "${product.name}" agregado a la lista!`);
+    setTimeout(() => setSparePartSuccessFeedback(''), 4000);
+  };
 
   const handleAddSparePart = () => {
     if (newPartType === 'INVENTORY') {
@@ -298,6 +340,78 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
     );
   });
 
+  const handleOpenEditClient = () => {
+    if (!selectedClientId) return;
+    setEditClientName(clientName);
+    setEditClientPhone(clientPhone);
+    setEditReferencePhone(referencePhone || '');
+    setEditReferenceRelationship(referenceRelationship || '');
+    setIsEditClientModalOpen(true);
+  };
+
+  const handleSaveEditClient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editClientName.trim() || !editClientPhone.trim()) {
+      alert('Por favor complete los campos obligatorios (*).');
+      return;
+    }
+
+    if (selectedClientId) {
+      const updated = mockDb.updateClient(selectedClientId, {
+        name: editClientName.trim(),
+        phone: editClientPhone.trim(),
+        referencePhone: editReferencePhone.trim() || undefined,
+        referenceRelationship: editReferenceRelationship.trim() || undefined
+      });
+
+      if (updated) {
+        setClientName(updated.name);
+        setClientPhone(updated.phone);
+        setReferencePhone(updated.referencePhone || '');
+        setReferenceRelationship(updated.referenceRelationship || '');
+        setClientSearchQuery(updated.name);
+        setClients(mockDb.getClients());
+        setClientSuccessFeedback('¡Datos del cliente actualizados con éxito!');
+        setTimeout(() => setClientSuccessFeedback(''), 4000);
+      }
+    }
+
+    setIsEditClientModalOpen(false);
+  };
+
+  // Live Matching Clients History inside the "Registrar Nuevo Cliente" modal
+  const matchingRegisteredClients = useMemo(() => {
+    const rawQuery = modalClientName.trim();
+    if (!rawQuery || rawQuery.length < 2) return [];
+
+    const normalize = (str: string) =>
+      str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+    const normalizedQuery = normalize(rawQuery);
+
+    return clients.filter(c => {
+      const normName = normalize(c.name || '');
+      return normName.includes(normalizedQuery);
+    }).slice(0, 6);
+  }, [clients, modalClientName]);
+
+  const handleSelectExistingClientFromModal = (client: Client) => {
+    setSelectedClientId(client.id);
+    setClientName(client.name);
+    setClientPhone(client.phone);
+    setReferencePhone(client.referencePhone || '');
+    setReferenceRelationship(client.referenceRelationship || '');
+    setClientSearchQuery(client.name);
+    setModalClientName(client.name);
+    setModalClientPhone(client.phone);
+    setModalReferencePhone(client.referencePhone || '');
+    setModalReferenceRelationship(client.referenceRelationship || '');
+    setShowModalClientSuggestions(false);
+    setIsAddClientModalOpen(false);
+    setClientSuccessFeedback(`¡Cliente "${client.name}" agregado desde el historial!`);
+    setTimeout(() => setClientSuccessFeedback(''), 4000);
+  };
+
   const handleToggleAccessory = (acc: string) => {
     if (accessories.includes(acc)) {
       setAccessories(accessories.filter(item => item !== acc));
@@ -378,26 +492,29 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
         assignedTechnicianId: assignedTechId || undefined,
         assignedTechnicianName: selectedTech ? selectedTech.name : undefined,
         observaciones: observaciones || undefined,
-        spareParts: spareParts.length > 0 ? spareParts : undefined,
+        isLaborOnly,
+        spareParts: !isLaborOnly && spareParts.length > 0 ? spareParts : undefined,
       };
 
       // 4. Save using DB
       const createdOrder = mockDb.createOrder(orderPayload, currentUser.name);
 
-      // Discount stock of spare parts and register movements
-      spareParts.forEach(part => {
-        if (part.type === 'INVENTORY' && part.productId) {
-          mockDb.addMovement({
-            productId: part.productId,
-            productName: part.name,
-            type: 'SALIDA_REPARACION',
-            quantity: part.quantity || 1,
-            reason: `Repuesto asignado en la creación de la Orden ${createdOrder.otNumber}`,
-            observation: `Descontado automáticamente al registrar la recepción de equipo.`,
-            orderId: createdOrder.id
-          }, currentUser.name);
-        }
-      });
+      // Discount stock of spare parts and register movements (only if not labor-only service)
+      if (!isLaborOnly) {
+        spareParts.forEach(part => {
+          if (part.type === 'INVENTORY' && part.productId) {
+            mockDb.addMovement({
+              productId: part.productId,
+              productName: part.name,
+              type: 'SALIDA_REPARACION',
+              quantity: part.quantity || 1,
+              reason: `Repuesto asignado en la creación de la Orden ${createdOrder.otNumber}`,
+              observation: `Descontado automáticamente al registrar la recepción de equipo.`,
+              orderId: createdOrder.id
+            }, currentUser.name);
+          }
+        });
+      }
 
       setSuccessOrder(createdOrder);
     } catch (err: any) {
@@ -426,6 +543,7 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
     setEstimatedCost('');
     setAdvancePayment('');
     setObservaciones('');
+    setIsLaborOnly(false);
     setSpareParts([]);
     setNewPartName('');
     setNewPartType('INVENTORY');
@@ -500,6 +618,14 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
         <div className="p-5 bg-gray-50 rounded-2xl border border-gray-150 inline-block w-full">
           <span className="text-xs uppercase font-extrabold text-gray-400 tracking-widest block">Código de Orden (OT)</span>
           <span className="text-3xl font-black text-[#111111] font-mono tracking-tight block mt-1">{successOrder.otNumber}</span>
+          
+          {successOrder.isLaborOnly && (
+            <div className="mt-2.5 py-1.5 px-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 inline-flex items-center space-x-1.5">
+              <Wrench className="w-3.5 h-3.5 text-amber-600" />
+              <span>SERVICIO DE MANO DE OBRA SIN REPUESTOS</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4 mt-4 text-left border-t border-gray-200 pt-3 text-xs text-gray-600">
             <div>
               <p className="font-semibold text-gray-400 uppercase text-[9px]">Cliente</p>
@@ -669,50 +795,99 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
             {/* Selected Client Card Display */}
             {selectedClientId && (
-              <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-100 space-y-2.5 animate-fade-in">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Detalles del Cliente Seleccionado</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-gradient-to-r from-amber-50/40 via-yellow-50/20 to-gray-50/70 p-4 rounded-2xl border border-amber-200/70 space-y-3 animate-fade-in shadow-xs">
+                <div className="flex items-center justify-between pb-1 border-b border-amber-100">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <p className="text-xs font-black text-gray-800 uppercase tracking-wider">Cliente Seleccionado</p>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    {/* Deselect Client Button */}
+                    <button
+                      id="deselect-client-btn"
+                      type="button"
+                      onClick={() => {
+                        setSelectedClientId('');
+                        setClientName('');
+                        setClientPhone('');
+                        setReferencePhone('');
+                        setReferenceRelationship('');
+                        setClientSearchQuery('');
+                      }}
+                      className="inline-flex items-center space-x-1 text-xs font-bold text-gray-500 hover:text-red-600 bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs"
+                      title="Deseleccionar este cliente"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Deseleccionar</span>
+                    </button>
+
+                    {/* Edit Client Button */}
+                    <button
+                      id="edit-selected-client-btn"
+                      type="button"
+                      onClick={handleOpenEditClient}
+                      className="inline-flex items-center space-x-1.5 text-xs font-black text-black bg-[#FACC15] hover:bg-yellow-400 active:scale-95 px-3 py-1.5 rounded-xl shadow-xs border border-yellow-300 transition-all cursor-pointer"
+                      title="Editar los datos de este cliente (corregir nombre, teléfono o referencia)"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>Editar Cliente</span>
+                    </button>
+                  </div>
+                </div>
+
+                {clientSuccessFeedback && (
+                  <div className="p-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center space-x-2 animate-fade-in">
+                    <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span>{clientSuccessFeedback}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white/80 p-3 rounded-xl border border-gray-100">
                   <div>
                     <span className="text-[10px] text-gray-400 font-bold block uppercase">Nombre</span>
-                    <span className="text-xs font-extrabold text-gray-800">{clientName}</span>
+                    <span className="text-xs font-black text-gray-900">{clientName}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-gray-400 font-bold block uppercase">Teléfono</span>
-                    <span className="text-xs font-mono font-bold text-gray-800">{clientPhone}</span>
+                    <span className="text-xs font-mono font-bold text-gray-900">{clientPhone}</span>
                   </div>
                   {referencePhone && (
                     <div>
                       <span className="text-[10px] text-gray-400 font-bold block uppercase">Contacto de Referencia</span>
-                      <span className="text-xs font-mono font-bold text-gray-800">{referencePhone}</span>
+                      <span className="text-xs font-mono font-bold text-gray-900">{referencePhone}</span>
                     </div>
                   )}
                   {referenceRelationship && (
                     <div>
                       <span className="text-[10px] text-gray-400 font-bold block uppercase">Relación / Parentesco</span>
-                      <span className="text-xs font-extrabold text-gray-800">{referenceRelationship}</span>
+                      <span className="text-xs font-bold text-gray-800">{referenceRelationship}</span>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            <div className="pt-2">
-              <button
-                id="open-add-client-modal-btn"
-                type="button"
-                onClick={() => {
-                  setModalClientName('');
-                  setModalClientPhone('');
-                  setModalReferencePhone('');
-                  setModalReferenceRelationship('');
-                  setIsAddClientModalOpen(true);
-                }}
-                className="text-xs font-extrabold text-black hover:text-yellow-600 flex items-center space-x-1 transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>¿No está registrado? Agregar nuevo cliente</span>
-              </button>
-            </div>
+            {/* Only show "Agregar nuevo cliente" when NO client is selected */}
+            {!selectedClientId && (
+              <div className="pt-2 animate-fade-in">
+                <button
+                  id="open-add-client-modal-btn"
+                  type="button"
+                  onClick={() => {
+                    setModalClientName('');
+                    setModalClientPhone('');
+                    setModalReferencePhone('');
+                    setModalReferenceRelationship('');
+                    setIsAddClientModalOpen(true);
+                  }}
+                  className="text-xs font-extrabold text-black hover:text-yellow-600 flex items-center space-x-1 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>¿No está registrado? Agregar nuevo cliente</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1147,37 +1322,100 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
           </div>
         </div>
 
+        {/* OPTION: SERVICIO DE MANO DE OBRA SIN REPUESTOS */}
+        <div 
+          id="labor-only-service-card"
+          className={`p-3.5 rounded-2xl border transition-all ${
+            isLaborOnly 
+              ? 'bg-amber-50/80 border-amber-300 ring-2 ring-[#FACC15]/60 shadow-sm' 
+              : 'bg-white border-gray-100 hover:border-gray-200 shadow-sm'
+          }`}
+        >
+          <label 
+            htmlFor="labor-only-service-checkbox"
+            className="flex items-center justify-between gap-3 cursor-pointer select-none"
+          >
+            <div className="flex items-center space-x-3">
+              <input
+                id="labor-only-service-checkbox"
+                type="checkbox"
+                checked={isLaborOnly}
+                onChange={(e) => setIsLaborOnly(e.target.checked)}
+                className="w-5 h-5 rounded-md text-black focus:ring-[#FACC15] accent-black cursor-pointer"
+              />
+              <span className="text-sm font-black text-gray-900 uppercase tracking-wide">
+                SERVICIO DE MANO DE OBRA SIN REPUESTOS
+              </span>
+            </div>
+
+            {isLaborOnly && (
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#FACC15] text-black uppercase tracking-wider shadow-2xs">
+                Activo
+              </span>
+            )}
+          </label>
+        </div>
+
         {/* SECTION: SPARE PARTS TO USE */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-          <div className="flex items-center space-x-2 pb-2 border-b border-gray-100">
-            <Wrench className="w-4.5 h-4.5 text-[#111111]" />
-            <h2 className="text-sm font-extrabold text-[#111111] uppercase tracking-wider">Repuestos a Usar</h2>
+        {!isLaborOnly && (
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <div className="flex items-center space-x-2">
+              <Wrench className="w-4.5 h-4.5 text-[#111111]" />
+              <h2 className="text-sm font-extrabold text-[#111111] uppercase tracking-wider">Repuestos a Usar</h2>
+            </div>
+            
+            {/* Main button to select from inventory */}
+            <button
+              id="open-spare-parts-inventory-btn"
+              type="button"
+              onClick={() => {
+                setNewPartType('INVENTORY');
+                setIsSparePartsInventoryModalOpen(true);
+              }}
+              className="inline-flex items-center space-x-1.5 text-xs font-black text-black bg-[#FACC15] hover:bg-yellow-400 active:scale-95 px-3 py-1.5 rounded-xl shadow-xs border border-yellow-300 transition-all cursor-pointer"
+              title="Abrir catálogo de repuestos del inventario"
+            >
+              <Boxes className="w-3.5 h-3.5" />
+              <span>Seleccionar Inventario</span>
+            </button>
           </div>
 
           <p className="text-xs text-gray-500 font-medium leading-relaxed">
             Agrega los repuestos necesarios para llevar a cabo la reparación. Puedes seleccionar repuestos propios de tu inventario o repuestos comprados externamente a colegas u otras personas.
           </p>
 
+          {sparePartSuccessFeedback && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center space-x-2 animate-fade-in">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{sparePartSuccessFeedback}</span>
+            </div>
+          )}
+
           {/* Spare part input form row */}
           <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-150 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Name input */}
+              {/* Name input / Selected product display */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 block">Nombre del Repuesto</label>
+                <label className="text-xs font-bold text-gray-700 block">
+                  {newPartType === 'INVENTORY' ? 'Repuesto Seleccionado de Inventario' : 'Nombre del Repuesto Externo *'}
+                </label>
                 {newPartType === 'INVENTORY' ? (
-                  <select
-                    id="spare-part-inventory-select"
-                    value={selectedProductId}
-                    onChange={(e) => setSelectedProductId(e.target.value)}
-                    className="block w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15] transition-all font-medium cursor-pointer"
-                  >
-                    <option value="">-- Seleccionar de Inventario --</option>
-                    {availableProducts.map(p => (
-                      <option key={p.id} value={p.id} disabled={p.stock <= 0}>
-                        [{p.category}] {p.name} {p.compatibleModel ? `(${p.compatibleModel})` : ''} - Stock: {p.stock} {p.stock <= 0 ? '(Agotado)' : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 shadow-2xs">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <Boxes className="w-4 h-4 text-yellow-600 shrink-0" />
+                      <span className="truncate text-gray-700 font-bold">
+                        {selectedProductId 
+                          ? (availableProducts.find(p => p.id === selectedProductId)?.name || 'Repuesto seleccionado')
+                          : 'Usa el botón "Seleccionar Inventario" arriba para elegir'}
+                      </span>
+                    </div>
+                    {selectedProductId && (
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-md shrink-0">
+                        Listo
+                      </span>
+                    )}
+                  </div>
                 ) : (
                   <input
                     id="spare-part-name-input"
@@ -1197,7 +1435,9 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
                   <button
                     id="part-type-inventory-btn"
                     type="button"
-                    onClick={() => setNewPartType('INVENTORY')}
+                    onClick={() => {
+                      setNewPartType('INVENTORY');
+                    }}
                     className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-all cursor-pointer ${
                       newPartType === 'INVENTORY'
                         ? 'bg-black text-[#FACC15] border-black shadow-xs'
@@ -1318,6 +1558,7 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
             )}
           </div>
         </div>
+        )}
 
         {/* SECTION 4: ASSIGNMENT AND FINANCES */}
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
@@ -1359,7 +1600,7 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-700 block">Costo Estimado (Bs.) *</label>
+              <label className="text-xs font-bold text-gray-700 block">Costo Mano de Obra (Bs.) *</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
                   <span className="text-gray-500 font-bold">Bs.</span>
@@ -1858,17 +2099,19 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
       {/* MODAL: REGISTRAR NUEVO CLIENTE (SUPERPOSICIÓN CON FONDO DIFUMINADO) */}
       {isAddClientModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-xl w-full max-w-md overflow-hidden transform transition-all">
-            <div className="bg-black text-white p-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden transform transition-all">
+            <div className="bg-black text-white p-4 flex justify-between items-center shrink-0 border-b border-gray-800">
               <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center space-x-2">
-                <UserCheck className="w-4.5 h-4.5 text-[#FACC15]" />
+                <div className="p-1.5 bg-[#FACC15] text-black rounded-lg">
+                  <UserCheck className="w-4 h-4" />
+                </div>
                 <span>Registrar Nuevo Cliente</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setIsAddClientModalOpen(false)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1904,22 +2147,59 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
                 setClientSearchQuery(newC.name);
 
                 setIsAddClientModalOpen(false);
+                setClientSuccessFeedback(`¡Cliente "${newC.name}" registrado y seleccionado exitosamente!`);
+                setTimeout(() => setClientSuccessFeedback(''), 4000);
               }}
-              className="p-5 space-y-4"
+              className="p-5 space-y-4 overflow-y-auto flex-1"
             >
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 block">Nombre del cliente *</label>
-                <input
-                  id="modal-client-name"
-                  type="text"
-                  required
-                  placeholder="Ej. Juan Pérez"
-                  value={modalClientName}
-                  onChange={(e) => setModalClientName(e.target.value)}
-                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all"
-                />
+              {/* Field 1: Client Name + Smooth Dropdown under the input line */}
+              <div className="space-y-1.5 relative">
+                <label className="text-xs font-bold text-gray-700 block">
+                  Nombre del cliente *
+                </label>
+
+                <div className="relative">
+                  <input
+                    id="modal-client-name"
+                    type="text"
+                    required
+                    autoFocus
+                    placeholder="Ej. Juan Pérez"
+                    value={modalClientName}
+                    onChange={(e) => {
+                      setModalClientName(e.target.value);
+                      setShowModalClientSuggestions(true);
+                    }}
+                    onFocus={() => setShowModalClientSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowModalClientSuggestions(false), 200)}
+                    autoComplete="off"
+                    className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all font-medium"
+                  />
+
+                  {/* Historial desplegable deslizado abajito de la línea - Solo muestra el nombre */}
+                  {showModalClientSuggestions && modalClientName.trim().length >= 2 && matchingRegisteredClients.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                      {matchingRegisteredClients.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectExistingClientFromModal(c);
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-yellow-50 active:bg-yellow-100 text-sm font-semibold text-gray-800 transition-colors cursor-pointer flex items-center justify-between group"
+                        >
+                          <span className="truncate text-gray-900 group-hover:text-black font-medium">
+                            {c.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* Field 2: Contact Phone */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 block">Teléfono de contacto *</label>
                 <input
@@ -1929,10 +2209,12 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
                   placeholder="Ej. 78945612"
                   value={modalClientPhone}
                   onChange={(e) => setModalClientPhone(e.target.value)}
-                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all"
+                  onFocus={() => setShowModalClientSuggestions(false)}
+                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all font-mono"
                 />
               </div>
 
+              {/* Field 3: Reference Phone */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 block">Teléfono de referencia (opcional)</label>
                 <input
@@ -1941,10 +2223,12 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
                   placeholder="Ej. 71234567"
                   value={modalReferencePhone}
                   onChange={(e) => setModalReferencePhone(e.target.value)}
-                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all"
+                  onFocus={() => setShowModalClientSuggestions(false)}
+                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all font-mono"
                 />
               </div>
 
+              {/* Field 4: Reference Relationship */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 block">Relación / Parentesco (Teléfono de referencia)</label>
                 <input
@@ -1969,7 +2253,7 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
                 </div>
               </div>
 
-              <div className="pt-3 flex items-center justify-end space-x-2">
+              <div className="pt-3 flex items-center justify-end space-x-2 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setIsAddClientModalOpen(false)}
@@ -1980,15 +2264,134 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
                 <button
                   id="modal-save-client-btn"
                   type="submit"
-                  className="px-4 py-2 bg-black text-[#FACC15] hover:bg-gray-900 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="px-5 py-2 bg-black text-[#FACC15] hover:bg-gray-900 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                 >
-                  Guardar Cliente
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Guardar Cliente</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* MODAL: EDITAR CLIENTE (SUPERPOSICIÓN CON FONDO DIFUMINADO) */}
+      {isEditClientModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            <div className="bg-gradient-to-r from-[#111111] to-[#222222] text-white p-4 flex justify-between items-center border-b border-gray-800">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center space-x-2">
+                <div className="p-1.5 bg-[#FACC15] text-black rounded-lg">
+                  <Pencil className="w-3.5 h-3.5" />
+                </div>
+                <span>Editar Datos del Cliente</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditClientModalOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditClient} className="p-5 space-y-4">
+              <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-xl text-xs text-amber-900 font-medium">
+                Corrige o actualiza los datos del cliente registrado para esta y futuras recepciones.
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 block">Nombre del cliente *</label>
+                <input
+                  id="edit-client-name"
+                  type="text"
+                  required
+                  placeholder="Ej. Juan Pérez"
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all font-semibold text-gray-900"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 block">Teléfono de contacto *</label>
+                <input
+                  id="edit-client-phone"
+                  type="tel"
+                  required
+                  placeholder="Ej. 78945612"
+                  value={editClientPhone}
+                  onChange={(e) => setEditClientPhone(e.target.value)}
+                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all font-mono font-bold text-gray-900"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 block">Teléfono de referencia (opcional)</label>
+                <input
+                  id="edit-reference-phone"
+                  type="tel"
+                  placeholder="Ej. 71234567"
+                  value={editReferencePhone}
+                  onChange={(e) => setEditReferencePhone(e.target.value)}
+                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all font-mono text-gray-900"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 block">Relación / Parentesco (Teléfono de referencia)</label>
+                <input
+                  id="edit-reference-relationship"
+                  type="text"
+                  placeholder="Ej. Familiar, Hermano, Amigo, etc."
+                  value={editReferenceRelationship}
+                  onChange={(e) => setEditReferenceRelationship(e.target.value)}
+                  className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all text-gray-900"
+                />
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {['Familiar', 'Hermano/a', 'Amigo/a', 'Compañero/a', 'Esposo/a'].map((rel) => (
+                    <button
+                      type="button"
+                      key={rel}
+                      onClick={() => setEditReferenceRelationship(rel)}
+                      className="px-2.5 py-1 bg-gray-100 hover:bg-yellow-100 hover:text-yellow-900 text-gray-600 text-[10px] font-bold rounded-lg transition-colors border border-gray-200 cursor-pointer"
+                    >
+                      + {rel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end space-x-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditClientModalOpen(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  id="modal-save-edit-client-btn"
+                  type="submit"
+                  className="px-5 py-2 bg-[#FACC15] text-black font-black hover:bg-yellow-400 rounded-xl text-xs transition-all shadow-md cursor-pointer flex items-center space-x-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Inventory Picker Modal with Backdrop Blur */}
+      <SparePartsInventoryModal
+        isOpen={isSparePartsInventoryModalOpen}
+        onClose={() => setIsSparePartsInventoryModalOpen(false)}
+        products={availableProducts}
+        onSelectProduct={handleSelectProductFromInventoryModal}
+        alreadySelectedProductIds={spareParts.filter((p) => p.type === 'INVENTORY' && p.productId).map((p) => p.productId!)}
+      />
     </div>
   );
 }

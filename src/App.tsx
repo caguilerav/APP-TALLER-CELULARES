@@ -145,7 +145,7 @@ export default function App() {
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-sm font-black tracking-tight text-white uppercase truncate">
-                {workshopSettings.workshopName || 'Taller Celulares'}
+                {workshopSettings.workshopName || 'BOL.FIX'}
               </h1>
               <span className="text-[10px] text-[#FACC15] font-bold truncate block">
                 {workshopSettings.workshopSlogan || 'Panel Administrativo'}
@@ -315,7 +315,7 @@ export default function App() {
               <Smartphone className="w-5 h-5 text-black" />
             </div>
             <span className="font-extrabold text-sm uppercase tracking-wide truncate max-w-[170px]">
-              {workshopSettings.workshopName || 'Taller Celulares'}
+              {workshopSettings.workshopName || 'BOL.FIX'}
             </span>
           </div>
 
@@ -528,7 +528,9 @@ export default function App() {
 
             <div className="flex-1 overflow-y-auto space-y-4 font-mono text-xs pr-1">
               <div className="text-center space-y-1">
-                <h3 className="text-base font-black tracking-tight text-center uppercase">SERVICIO TÉCNICO EXPRESS</h3>
+                <h3 className="text-base font-black tracking-tight text-center uppercase">
+                  {workshopSettings.workshopName || 'BOL.FIX'}
+                </h3>
                 <p className="text-[9px] text-gray-500 uppercase">Soluciones Móviles & Accesorios</p>
                 <p className="text-[10px] text-gray-600 font-bold border-t border-dashed border-gray-300 pt-1.5 mt-1.5">
                   REIMPRESIÓN COMPROBANTE

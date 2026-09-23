@@ -72,8 +72,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             <div className="mx-auto w-16 h-16 bg-[#111111] rounded-2xl flex items-center justify-center shadow-md mb-3">
               <Smartphone className="w-8 h-8 text-[#FACC15]" />
             </div>
-            <h1 className="text-2xl font-bold text-[#111111] tracking-tight">Taller Celulares</h1>
-            <p className="text-sm text-gray-500 mt-1">Gestión Premium de Reparaciones</p>
+            <h1 className="text-2xl font-black text-[#111111] tracking-tight">BOL.FIX</h1>
+            <p className="text-sm text-gray-500 mt-1">Servicio Técnico Móvil & Sistema de Gestión</p>
           </div>
 
           {!showRecovery ? (
@@ -243,7 +243,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
       <div className="text-center mt-6 text-xs text-gray-400 space-y-1 max-w-sm px-4 leading-relaxed">
         <p>Este sistema de demostración almacena información localmente.</p>
-        <p>© 2026 Taller de Celulares Pro. Todos los derechos reservados.</p>
+        <p>© 2026 BOL.FIX. Todos los derechos reservados.</p>
       </div>
     </div>
   );

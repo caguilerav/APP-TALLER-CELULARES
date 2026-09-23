@@ -36,12 +36,12 @@ const SALES_KEY = 'taller_celulares_sales_v1';
 const SETTINGS_KEY = 'taller_celulares_settings_v1';
 
 const DEFAULT_SETTINGS: WorkshopSettings = {
-  workshopName: 'SERVICIO TÉCNICO EXPRESS',
-  workshopSlogan: 'Soluciones Móviles & Accesorios',
+  workshopName: 'BOL.FIX',
+  workshopSlogan: 'Servicio Técnico Especializado & Soluciones Móviles',
   phone: '777-12345 / 789-67890',
   address: 'Av. Principal N° 450, Galería Central Local 12',
   currencySymbol: 'Bs.',
-  ticketFooterMessage: '¡Gracias por su preferencia! Todo trabajo técnico cuenta con garantía.',
+  ticketFooterMessage: '¡Gracias por confiar en BOL.FIX! Todo trabajo técnico cuenta con garantía.',
   defaultWarrantyDays: 30,
   taxPercentage: 0,
 
@@ -728,6 +728,22 @@ export const mockDb = {
     return newClient;
   },
 
+  updateClient(id: string, updatedFields: Partial<Client>): Client | null {
+    const clients = this.getClients();
+    const idx = clients.findIndex(c => c.id === id);
+    if (idx === -1) return null;
+    
+    const oldClient = clients[idx];
+    const newClient: Client = {
+      ...oldClient,
+      ...updatedFields
+    };
+    
+    clients[idx] = newClient;
+    this.saveClients(clients);
+    return newClient;
+  },
+
   // Order Operations
   createOrder(orderData: Omit<Order, 'id' | 'otNumber' | 'createdAt' | 'updatedAt'>, createdByUser: string): Order {
     const orders = this.getOrders();
@@ -1121,7 +1137,19 @@ export const mockDb = {
       return DEFAULT_SETTINGS;
     }
     try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+      const parsed = JSON.parse(data);
+      // Migrate old default workshop names to BOL.FIX
+      if (
+        !parsed.workshopName ||
+        parsed.workshopName === 'SERVICIO TÉCNICO EXPRESS' ||
+        parsed.workshopName === 'TALLER DE CELULARES PRO' ||
+        parsed.workshopName === 'Taller Celulares' ||
+        parsed.workshopName === 'Taller Express'
+      ) {
+        parsed.workshopName = 'BOL.FIX';
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, ...parsed }));
+      }
+      return { ...DEFAULT_SETTINGS, ...parsed };
     } catch (e) {
       return DEFAULT_SETTINGS;
     }

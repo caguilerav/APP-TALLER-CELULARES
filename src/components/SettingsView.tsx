@@ -506,7 +506,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                     value={settings.workshopName}
                     onChange={(e) => setSettings({ ...settings, workshopName: e.target.value })}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-900 focus:bg-white focus:border-black outline-none"
-                    placeholder="Ej: Servicio Técnico Express"
+                    placeholder="Ej: BOL.FIX"
                   />
                 </div>
 

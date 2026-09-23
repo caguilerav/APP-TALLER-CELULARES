@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ShoppingBag, 
   Search, 
@@ -21,7 +21,10 @@ import {
   RefreshCw,
   X,
   PlusCircle,
-  Tag
+  Tag,
+  History,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
 import { Product, Sale, SaleItem, Client, User as SystemUser } from '../types';
@@ -59,6 +62,7 @@ export default function SalesView({ currentUser }: SalesViewProps) {
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
+  const [showSalesSuggestions, setShowSalesSuggestions] = useState(true);
 
   // Cart State
   const [cart, setCart] = useState<SaleItem[]>([]);
@@ -209,6 +213,31 @@ export default function SalesView({ currentUser }: SalesViewProps) {
     // Clear & close
     setNewClientName('');
     setNewClientPhone('');
+    setIsClientModalOpen(false);
+  };
+
+  // Live Matching Clients in Sales Quick Modal
+  const matchingSalesClients = useMemo(() => {
+    const rawQuery = newClientName.trim();
+    if (!rawQuery || rawQuery.length < 2) return [];
+
+    const normalize = (str: string) =>
+      str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+    const normalizedQuery = normalize(rawQuery);
+
+    return clients.filter(c => {
+      const normName = normalize(c.name || '');
+      return normName.includes(normalizedQuery);
+    }).slice(0, 6);
+  }, [clients, newClientName]);
+
+  const handleSelectExistingFromSalesModal = (client: Client) => {
+    setSelectedClient(client);
+    setClientSearch(client.name);
+    setNewClientName('');
+    setNewClientPhone('');
+    setShowSalesSuggestions(false);
     setIsClientModalOpen(false);
   };
 
@@ -743,16 +772,46 @@ export default function SalesView({ currentUser }: SalesViewProps) {
             </div>
             
             <form onSubmit={handleQuickClientSubmit} className="mt-4 space-y-4">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 relative">
                 <label className="text-xs font-bold text-gray-700 block">Nombre Completo *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Andrés Cáceres Lozada"
-                  value={newClientName}
-                  onChange={(e) => setNewClientName(e.target.value)}
-                  className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15] transition-all font-semibold"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    placeholder="Ej. Andrés Cáceres Lozada"
+                    value={newClientName}
+                    onChange={(e) => {
+                      setNewClientName(e.target.value);
+                      setShowSalesSuggestions(true);
+                    }}
+                    onFocus={() => setShowSalesSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSalesSuggestions(false), 200)}
+                    autoComplete="off"
+                    className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15] transition-all font-semibold"
+                  />
+
+                  {/* Historial desplegable deslizado abajito de la línea - Solo muestra el nombre */}
+                  {showSalesSuggestions && newClientName.trim().length >= 2 && matchingSalesClients.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                      {matchingSalesClients.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectExistingFromSalesModal(c);
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-yellow-50 active:bg-yellow-100 text-xs font-semibold text-gray-800 transition-colors cursor-pointer flex items-center justify-between group"
+                        >
+                          <span className="truncate text-gray-900 group-hover:text-black">
+                            {c.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -811,9 +870,15 @@ export default function SalesView({ currentUser }: SalesViewProps) {
             <div id="printable-ticket" className="flex-1 overflow-y-auto space-y-4 font-mono text-xs pr-1">
               {/* Receipt Header */}
               <div className="text-center space-y-1">
-                <h3 className="text-base font-black tracking-tight text-center uppercase">SERVICIO TÉCNICO EXPRESS</h3>
-                <p className="text-[9px] text-gray-500 uppercase">Soluciones Móviles & Accesorios</p>
-                <p className="text-[9px] text-gray-400">Telf: (+591) 78945612</p>
+                <h3 className="text-base font-black tracking-tight text-center uppercase">
+                  {mockDb.getSettings().workshopName || 'BOL.FIX'}
+                </h3>
+                <p className="text-[9px] text-gray-500 uppercase">
+                  {mockDb.getSettings().workshopSlogan || 'Servicio Técnico Especializado & Soluciones Móviles'}
+                </p>
+                <p className="text-[9px] text-gray-400">
+                  {mockDb.getSettings().phone || 'Telf: (+591) 78945612'}
+                </p>
                 <p className="text-[10px] text-gray-600 font-bold border-t border-dashed border-gray-300 pt-1.5 mt-1.5">
                   COMPROBANTE DE COMPRA
                 </p>

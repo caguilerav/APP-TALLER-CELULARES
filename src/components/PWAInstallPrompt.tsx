@@ -6,7 +6,26 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
+// Check if the current view is in Mobile Mode (mobile viewport or mobile device)
+export const isMobileMode = (): boolean => {
+  if (typeof window === 'undefined') return false;
+
+  // Viewport width check: screen width < 768px corresponds to Tailwind mobile mode (< md)
+  if (window.innerWidth < 768) {
+    return true;
+  }
+
+  // Device check: smartphones and tablets (Android, iOS, iPad, etc.)
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const isMobileOrTablet =
+    /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua) ||
+    ((navigator.platform || '').toLowerCase().includes('mac') && (navigator.maxTouchPoints || 0) > 1);
+
+  return isMobileOrTablet;
+};
+
 export default function PWAInstallPrompt() {
+  const [inMobileMode, setInMobileMode] = useState<boolean>(() => isMobileMode());
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [isIOS, setIsIOS] = useState<boolean>(false);
@@ -16,6 +35,20 @@ export default function PWAInstallPrompt() {
   const [installedSuccess, setInstalledSuccess] = useState<boolean>(false);
 
   useEffect(() => {
+    // Listen for resize / orientation change to dynamically check mobile mode vs web mode
+    const handleResize = () => {
+      setInMobileMode(isMobileMode());
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    // Clean legacy permanent dismissal from localStorage if present so mobile users can see it
+    try {
+      localStorage.removeItem('pwa_banner_dismissed');
+    } catch {
+      // ignore
+    }
+
     // Check if app is running in standalone mode (already installed as PWA) or previously installed
     const isStandaloneMode =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -29,9 +62,13 @@ export default function PWAInstallPrompt() {
       setShowBanner(false);
     }
 
-    // Check if user manually dismissed banner
-    if (localStorage.getItem('pwa_banner_dismissed') === 'true') {
-      setShowBanner(false);
+    // Check if user manually dismissed banner in this session
+    try {
+      if (sessionStorage.getItem('pwa_banner_dismissed') === 'true') {
+        setShowBanner(false);
+      }
+    } catch {
+      // ignore
     }
 
     // Detect iOS / Safari
@@ -74,6 +111,8 @@ export default function PWAInstallPrompt() {
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
       if (mediaQuery.removeEventListener) {
@@ -109,19 +148,24 @@ export default function PWAInstallPrompt() {
 
   const handleDismissBanner = () => {
     setShowBanner(false);
-    localStorage.setItem('pwa_banner_dismissed', 'true');
+    try {
+      sessionStorage.setItem('pwa_banner_dismissed', 'true');
+    } catch {
+      // ignore
+    }
   };
 
-  // If already installed or running as standalone PWA or banner dismissed, don't show prompt
-  if (isStandalone) {
+  // Only show in Mobile Mode (< 768px or mobile devices).
+  // Strictly hidden in Web Mode (Desktop screens >= 768px) and when already installed.
+  if (!inMobileMode || isStandalone) {
     return null;
   }
 
   return (
     <>
-      {/* Translucent Cloud Banner (Nube semi-transparente) */}
+      {/* Translucent Cloud Banner (Nube semi-transparente) - Solo visible en móviles / no en PC */}
       {showBanner && (
-        <div className="mx-3 my-2 bg-black/75 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-2.5 px-3.5 flex items-center justify-between gap-3 text-white transition-all animate-fade-in z-30">
+        <div className="md:hidden mx-3 my-2 bg-black/75 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-2.5 px-3.5 flex items-center justify-between gap-3 text-white transition-all animate-fade-in z-30">
           {/* Left Side: App Icon & Title */}
           <div className="flex items-center space-x-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FACC15] to-amber-500 text-black font-black flex items-center justify-center shrink-0 shadow-md shadow-yellow-500/20">
@@ -130,7 +174,7 @@ export default function PWAInstallPrompt() {
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5">
                 <span className="text-xs font-extrabold tracking-wide text-white truncate">
-                  Taller Express
+                  BOL.FIX
                 </span>
                 <span className="bg-[#FACC15]/20 text-[#FACC15] border border-[#FACC15]/40 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                   App
@@ -266,7 +310,7 @@ export default function PWAInstallPrompt() {
                 </p>
                 <ol className="list-decimal list-inside text-gray-600 space-y-1 pl-1 text-[11px]">
                   <li>Haz clic en el icono de instalación (🖥️ / ➕) en la barra de direcciones de la derecha.</li>
-                  <li>O abre el menú de opciones y elige <b>"Instalar Taller Express"</b>.</li>
+                  <li>O abre el menú de opciones y elige <b>"Instalar BOL.FIX"</b>.</li>
                 </ol>
               </div>
 

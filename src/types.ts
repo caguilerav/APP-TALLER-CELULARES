@@ -64,6 +64,7 @@ export interface Order {
   physicalState: string[]; // 'Pantalla rota', 'No enciende', 'Mojado', 'Golpes', 'Rayones'
   images?: string[]; // Base64 or Object URL of photos of the device
   spareParts?: UsedSparePart[]; // Spare parts associated to this repair
+  isLaborOnly?: boolean; // When true, service is strictly labor only (customer provided parts or no parts needed)
   
   // Finance
   estimatedCost: number;
