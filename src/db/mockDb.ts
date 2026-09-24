@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS: WorkshopSettings = {
   taxPercentage: 0,
   customLogo: '',
   customAppIcon: '',
+  appIconZoom: 75,
 
   otPrefix: 'OT-',
   requireTechnicianAssigned: false,

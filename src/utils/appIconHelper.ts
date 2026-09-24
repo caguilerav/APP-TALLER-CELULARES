@@ -127,3 +127,84 @@ function updateDynamicManifest(iconUrl: string, appName: string) {
     console.warn('Error dynamically updating manifest:', err);
   }
 }
+
+/**
+ * Generates an optimized square 512x512 app icon from an image source with
+ * customizable zoom/scale (default 75%) to respect PWA maskable safe zones
+ * and prevent unwanted cropping/excessive zoom.
+ */
+export function generateOptimizedAppIcon(
+  imageSrc: string,
+  zoomPercentage: number = 75
+): Promise<string> {
+  return new Promise((resolve) => {
+    if (!imageSrc) {
+      resolve('/pwa-icon.svg');
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          resolve(imageSrc);
+          return;
+        }
+
+        // 1. Detect background color from image corners
+        let bgColor = '#111111'; // default dark theme
+        try {
+          const sampleCanvas = document.createElement('canvas');
+          sampleCanvas.width = img.width;
+          sampleCanvas.height = img.height;
+          const sCtx = sampleCanvas.getContext('2d');
+          if (sCtx) {
+            sCtx.drawImage(img, 0, 0);
+            const corner = sCtx.getImageData(0, 0, 1, 1).data;
+            if (corner[3] > 200) {
+              bgColor = `rgb(${corner[0]}, ${corner[1]}, ${corner[2]})`;
+            }
+          }
+        } catch {
+          bgColor = '#000000';
+        }
+
+        // Fill background
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // 2. Safe-zone scale calculation (40% to 100%, default 75%)
+        const clampedZoom = Math.max(40, Math.min(100, zoomPercentage));
+        const maxDimension = 512 * (clampedZoom / 100);
+
+        const scale = Math.min(maxDimension / img.width, maxDimension / img.height);
+        const drawWidth = img.width * scale;
+        const drawHeight = img.height * scale;
+        const drawX = (512 - drawWidth) / 2;
+        const drawY = (512 - drawHeight) / 2;
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        console.warn('Error generating optimized icon:', e);
+        resolve(imageSrc);
+      }
+    };
+
+    img.onerror = () => {
+      resolve(imageSrc);
+    };
+
+    img.src = imageSrc;
+  });
+}
+

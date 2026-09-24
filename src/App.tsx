@@ -36,7 +36,7 @@ import GlobalSearchView from './components/GlobalSearchView';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import BolFixLogo from './components/BolFixLogo';
 import { mockDb } from './db/mockDb';
-import { updateAppIcon, resetAppIcon } from './utils/appIconHelper';
+import { updateAppIcon, resetAppIcon, generateOptimizedAppIcon } from './utils/appIconHelper';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -65,9 +65,15 @@ export default function App() {
       console.warn('Error setting initial zoom:', e);
     }
 
-    // Helper to refresh app icon in browser tab, apple touch, and PWA manifest
-    const syncAppIcon = (settings: WorkshopSettings) => {
-      const activeIcon = settings.customAppIcon || settings.customLogo;
+    // Helper to refresh app icon in browser tab, apple touch, and PWA manifest with proper safe-zone padding
+    const syncAppIcon = async (settings: WorkshopSettings) => {
+      let activeIcon = settings.customAppIcon;
+      if (!activeIcon && settings.customLogo) {
+        activeIcon = await generateOptimizedAppIcon(settings.customLogo, settings.appIconZoom || 75);
+      } else if (!activeIcon) {
+        activeIcon = settings.customLogo;
+      }
+
       if (activeIcon) {
         updateAppIcon(activeIcon, settings.workshopName);
       } else {

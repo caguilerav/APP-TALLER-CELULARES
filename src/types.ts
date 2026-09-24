@@ -214,6 +214,7 @@ export interface WorkshopSettings {
   taxPercentage: number;
   customLogo?: string; // Base64 data URI or image URL uploaded by the user
   customAppIcon?: string; // Base64 data URI or icon URL for app icon & favicon
+  appIconZoom?: number; // Porcentaje de zoom/escala del ícono de la app (40 a 100, default 75)
 
   // Recepción & Órdenes
   otPrefix: string;

@@ -61,7 +61,7 @@ export const BolFixLogo: React.FC<BolFixLogoProps> = ({
         <img
           src={resolvedLogo}
           alt={mockDb.getSettings()?.workshopName || 'Logo de la empresa'}
-          className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl select-none"
+          className={`max-w-full max-h-full w-auto h-auto object-contain rounded-xl select-none ${variant === 'icon' ? 'p-1' : ''}`}
           referrerPolicy="no-referrer"
         />
       </div>

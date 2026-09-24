@@ -30,7 +30,7 @@ import {
 import { mockDb } from '../db/mockDb';
 import { User, UserRole, WorkshopSettings } from '../types';
 import ZoomKnobControl from './ZoomKnobControl';
-import { updateAppIcon, resetAppIcon } from '../utils/appIconHelper';
+import { updateAppIcon, resetAppIcon, generateOptimizedAppIcon } from '../utils/appIconHelper';
 
 interface SettingsViewProps {
   currentUser: User;
@@ -113,9 +113,9 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
         return;
       }
 
-      // Generate optimized versions for Logo and for App Icon (square)
+      // Generate optimized versions for Logo and for App Icon (with safe margin)
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const MAX_SIZE = 600;
         let { width, height } = img;
 
@@ -141,35 +141,17 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
           compressedLogo = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.92);
         }
 
-        // 2. Square canvas (512x512) for App Icon & Favicon
-        const iconCanvas = document.createElement('canvas');
-        iconCanvas.width = 512;
-        iconCanvas.height = 512;
-        const iconCtx = iconCanvas.getContext('2d');
-        let squareAppIcon = compressedLogo;
-        if (iconCtx) {
-          const aspect = img.width / img.height;
-          if (aspect >= 0.92 && aspect <= 1.08) {
-            iconCtx.drawImage(img, 0, 0, 512, 512);
-          } else {
-            // Draw centered on solid dark background matching app theme
-            iconCtx.fillStyle = '#111111';
-            iconCtx.fillRect(0, 0, 512, 512);
-            const scale = Math.min(480 / img.width, 480 / img.height);
-            const sw = img.width * scale;
-            const sh = img.height * scale;
-            const sx = (512 - sw) / 2;
-            const sy = (512 - sh) / 2;
-            iconCtx.drawImage(img, sx, sy, sw, sh);
-          }
-          squareAppIcon = iconCanvas.toDataURL('image/png');
-        }
+        // 2. Generate optimized App Icon with safe margin (75% default zoom prevents cutting and excessive zoom)
+        const currentZoom = settings.appIconZoom || 75;
+        const squareAppIcon = await generateOptimizedAppIcon(compressedLogo, currentZoom);
 
         saveNewLogoAndIcon(compressedLogo, squareAppIcon);
       };
 
-      img.onerror = () => {
-        saveNewLogoAndIcon(result, result);
+      img.onerror = async () => {
+        const currentZoom = settings.appIconZoom || 75;
+        const squareAppIcon = await generateOptimizedAppIcon(result, currentZoom);
+        saveNewLogoAndIcon(result, squareAppIcon);
       };
       img.src = result;
     };
@@ -186,17 +168,29 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     setSettings(prev => ({ 
       ...prev, 
       customLogo: logoDataUrl,
-      customAppIcon: appIconDataUrl 
+      customAppIcon: appIconDataUrl,
+      appIconZoom: prev.appIconZoom || 75
     }));
     setIsUploadingLogo(false);
     if (logoInputRef.current) {
       logoInputRef.current.value = '';
     }
-    showSuccess('Foto cargada para Logotipo e Ícono de la app. Haz clic en "Guardar Cambios" para aplicarla en toda la app.');
+    showSuccess('Foto cargada para Logotipo e Ícono de la app con escala óptima. Haz clic en "Guardar Cambios" para aplicarla.');
+  };
+
+  const handleUpdateIconZoom = async (newZoom: number) => {
+    const clamped = Math.max(40, Math.min(100, newZoom));
+    const sourceImage = settings.customLogo || originalSettings.customLogo;
+    if (sourceImage) {
+      const updatedIcon = await generateOptimizedAppIcon(sourceImage, clamped);
+      setSettings(prev => ({ ...prev, customAppIcon: updatedIcon, appIconZoom: clamped }));
+    } else {
+      setSettings(prev => ({ ...prev, appIconZoom: clamped }));
+    }
   };
 
   const handleRemoveCustomLogo = () => {
-    setSettings(prev => ({ ...prev, customLogo: '', customAppIcon: '' }));
+    setSettings(prev => ({ ...prev, customLogo: '', customAppIcon: '', appIconZoom: 75 }));
     showSuccess('Logotipo e Ícono restablecidos al oficial en vista previa. Haz clic en "Guardar Cambios" para confirmar.');
   };
 
@@ -828,7 +822,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                               Ícono de la App
                             </span>
                             <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                              PWA & Web
+                              Escala {settings.appIconZoom || 75}%
                             </span>
                           </div>
                           <span className="text-[10px] text-gray-500 block leading-tight">
@@ -837,6 +831,80 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                         </div>
                       </div>
                     </div>
+
+                    {/* Control Interactivo de Zoom / Escala del Ícono */}
+                    {(settings.customLogo || settings.customAppIcon || originalSettings.customLogo) && (
+                      <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-2.5 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1.5">
+                            <Sliders className="w-3.5 h-3.5 text-blue-600" />
+                            <span className="text-xs font-black text-gray-900 uppercase tracking-wide">
+                              Ajuste de Escala / Zoom del Ícono
+                            </span>
+                          </div>
+                          <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 font-mono">
+                            {settings.appIconZoom || 75}% {(settings.appIconZoom || 75) === 75 ? '· Óptimo' : ''}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-gray-500 leading-tight">
+                          Disminuye el zoom para que el logotipo no se corte en los bordes y respete el margen seguro de la pantalla de inicio del celular y pestaña del navegador:
+                        </p>
+
+                        {/* Slider bar */}
+                        <div className="flex items-center space-x-3 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateIconZoom((settings.appIconZoom || 75) - 5)}
+                            className="w-7 h-7 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-black text-sm cursor-pointer active:scale-95 transition-all"
+                            title="Reducir zoom (alejar)"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="range"
+                            min="45"
+                            max="100"
+                            step="5"
+                            value={settings.appIconZoom || 75}
+                            onChange={(e) => handleUpdateIconZoom(Number(e.target.value))}
+                            className="flex-1 accent-black h-2 bg-gray-200 rounded-lg cursor-pointer"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateIconZoom((settings.appIconZoom || 75) + 5)}
+                            className="w-7 h-7 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-black text-sm cursor-pointer active:scale-95 transition-all"
+                            title="Aumentar zoom (acercar)"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Presets */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <span className="text-[10px] text-gray-400 font-bold mr-1">Preajustes rápidos:</span>
+                          {[
+                            { label: '65% (Espacioso)', value: 65 },
+                            { label: '75% (Óptimo / Recomendado)', value: 75 },
+                            { label: '85% (Mediano)', value: 85 },
+                            { label: '100% (Sin margen)', value: 100 }
+                          ].map((preset) => (
+                            <button
+                              key={preset.value}
+                              type="button"
+                              onClick={() => handleUpdateIconZoom(preset.value)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                (settings.appIconZoom || 75) === preset.value
+                                  ? 'bg-black text-[#00FF40] shadow-xs'
+                                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Action buttons and information */}
                     <div className="pt-2 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
