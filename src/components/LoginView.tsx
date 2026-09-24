@@ -4,8 +4,9 @@
  */
 
 import React, { useState } from 'react';
-import { ShieldCheck, Mail, Lock, UserCheck, Smartphone } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, UserCheck } from 'lucide-react';
 import { User } from '../types';
+import BolFixLogo from './BolFixLogo';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User) => void;
@@ -68,12 +69,13 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
         <div className="p-8">
           {/* Brand Identity Header */}
-          <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-[#111111] rounded-2xl flex items-center justify-center shadow-md mb-3">
-              <Smartphone className="w-8 h-8 text-[#FACC15]" />
+          <div className="text-center mb-6 flex flex-col items-center">
+            <div className="w-56 max-w-full drop-shadow-xl mb-1">
+              <BolFixLogo className="w-full h-auto" />
             </div>
-            <h1 className="text-2xl font-black text-[#111111] tracking-tight">BOL.FIX</h1>
-            <p className="text-sm text-gray-500 mt-1">Servicio Técnico Móvil & Sistema de Gestión</p>
+            <p className="text-xs font-semibold text-gray-500 mt-1 uppercase tracking-wider">
+              Servicio Técnico Especializado & Gestión de Taller
+            </p>
           </div>
 
           {!showRecovery ? (

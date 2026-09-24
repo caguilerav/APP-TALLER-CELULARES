@@ -1388,98 +1388,6 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
               })}
             </div>
           </div>
-
-          {/* Photos Selection Section */}
-          <div className="space-y-3 pt-4 border-t border-gray-100">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-600 block uppercase tracking-wide">Fotos del Estado del Dispositivo (Máx. 4)</span>
-              <span className="text-[10px] font-bold text-gray-400 font-mono">{images.length}/4 fotos</span>
-            </div>
-
-            <div 
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-4 transition-all text-center ${
-                isDragging 
-                  ? 'border-[#FACC15] bg-yellow-50/50 scale-[0.99]' 
-                  : 'border-gray-200 hover:border-gray-300 bg-gray-50/50'
-              }`}
-            >
-              <input
-                id="device-photos-file-input"
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                disabled={images.length >= 4}
-              />
-              
-              <div className="flex flex-col items-center justify-center space-y-2">
-                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-gray-100 shadow-sm">
-                  <Camera className="w-5 h-5 text-gray-400" />
-                </div>
-                <div>
-                  <label 
-                    htmlFor="device-photos-file-input" 
-                    className={`text-xs font-bold text-gray-900 cursor-pointer hover:text-yellow-600 ${
-                      images.length >= 4 ? 'pointer-events-none opacity-50' : ''
-                    }`}
-                  >
-                    Haga clic para subir fotos
-                  </label>
-                  <span className="text-xs text-gray-500"> o arrastre y suelte aquí</span>
-                </div>
-                <p className="text-[10px] text-gray-400">Formatos JPG, PNG. Máximo 4 archivos.</p>
-              </div>
-            </div>
-
-            {/* Photos Preview Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-              {Array.from({ length: 4 }).map((_, idx) => {
-                const img = images[idx];
-                return (
-                  <div 
-                    key={idx} 
-                    className={`relative aspect-video sm:aspect-square rounded-xl overflow-hidden border flex items-center justify-center ${
-                      img 
-                        ? 'border-gray-200 bg-black/5' 
-                        : 'border-dashed border-gray-200 bg-gray-50/30'
-                    }`}
-                  >
-                    {img ? (
-                      <>
-                        <img 
-                          src={img} 
-                          alt={`Estado ${idx + 1}`} 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                        <button
-                          id={`remove-photo-btn-${idx}`}
-                          type="button"
-                          onClick={() => removeImage(idx)}
-                          className="absolute top-1 right-1 bg-black/60 hover:bg-black text-white rounded-full p-1 transition-colors"
-                          title="Eliminar foto"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] font-bold text-white font-mono">
-                          Foto {idx + 1}
-                        </span>
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center space-y-1 text-gray-400">
-                        <ImageIcon className="w-4 h-4" />
-                        <span className="text-[9px] font-bold uppercase tracking-wider">Vacío</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         {/* OPTION: SERVICIO DE MANO DE OBRA SIN REPUESTOS */}
@@ -1719,6 +1627,101 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
           </div>
         </div>
         )}
+
+        {/* SECTION: DEVICE PHOTOS */}
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <div className="flex items-center space-x-2">
+              <Camera className="w-4.5 h-4.5 text-[#111111]" />
+              <h2 className="text-sm font-extrabold text-[#111111] uppercase tracking-wider">Fotos del Estado del Dispositivo</h2>
+            </div>
+            <span className="text-[10px] font-bold text-gray-400 font-mono">{images.length}/4 fotos</span>
+          </div>
+
+          <div 
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-xl p-4 transition-all text-center ${
+              isDragging 
+                ? 'border-[#FACC15] bg-yellow-50/50 scale-[0.99]' 
+                : 'border-gray-200 hover:border-gray-300 bg-gray-50/50'
+            }`}
+          >
+            <input
+              id="device-photos-file-input"
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+              disabled={images.length >= 4}
+            />
+            
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-gray-100 shadow-sm">
+                <Camera className="w-5 h-5 text-gray-400" />
+              </div>
+              <div>
+                <label 
+                  htmlFor="device-photos-file-input" 
+                  className={`text-xs font-bold text-gray-900 cursor-pointer hover:text-yellow-600 ${
+                    images.length >= 4 ? 'pointer-events-none opacity-50' : ''
+                  }`}
+                >
+                  Haga clic para subir fotos
+                </label>
+                <span className="text-xs text-gray-500"> o arrastre y suelte aquí</span>
+              </div>
+              <p className="text-[10px] text-gray-400">Formatos JPG, PNG. Máximo 4 archivos.</p>
+            </div>
+          </div>
+
+          {/* Photos Preview Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+            {Array.from({ length: 4 }).map((_, idx) => {
+              const img = images[idx];
+              return (
+                <div 
+                  key={idx} 
+                  className={`relative aspect-video sm:aspect-square rounded-xl overflow-hidden border flex items-center justify-center ${
+                    img 
+                      ? 'border-gray-200 bg-black/5' 
+                      : 'border-dashed border-gray-200 bg-gray-50/30'
+                  }`}
+                >
+                  {img ? (
+                    <>
+                      <img 
+                        src={img} 
+                        alt={`Estado ${idx + 1}`} 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      <button
+                        id={`remove-photo-btn-${idx}`}
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="absolute top-1 right-1 bg-black/60 hover:bg-black text-white rounded-full p-1 transition-colors cursor-pointer"
+                        title="Eliminar foto"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] font-bold text-white font-mono">
+                        Foto {idx + 1}
+                      </span>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center space-y-1 text-gray-400">
+                      <ImageIcon className="w-4 h-4" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider">Vacío</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* SECTION 4: ASSIGNMENT AND FINANCES */}
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">

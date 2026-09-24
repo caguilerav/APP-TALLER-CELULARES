@@ -1,35 +1,136 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none">
+  <!-- Solid Black Background as in original image -->
+  <rect width="1000" height="1000" fill="#000000" />
+
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1A1A1A"/>
-      <stop offset="100%" stop-color="#050505"/>
-    </linearGradient>
-    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FACC15"/>
-      <stop offset="100%" stop-color="#E2B810"/>
-    </linearGradient>
+    <!-- Subtle neon glow matching the original visual tone -->
+    <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
-  
-  <!-- Outer Rounded Square Background -->
-  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
-  
-  <!-- Outer Subtle Yellow Glow Border -->
-  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="url(#accentGrad)" stroke-width="6" opacity="0.4"/>
-  
-  <!-- Smartphone Frame -->
-  <rect x="156" y="106" width="200" height="300" rx="28" fill="#111111" stroke="url(#accentGrad)" stroke-width="12"/>
-  
-  <!-- Screen Area -->
-  <rect x="172" y="132" width="168" height="236" rx="14" fill="#1A1A1A"/>
-  
-  <!-- Phone Speaker Notch -->
-  <rect x="226" y="118" width="60" height="6" rx="3" fill="#FACC15"/>
-  
-  <!-- Wrench / Tool Icon overlay -->
-  <g transform="translate(256, 250) scale(1.8)" stroke="url(#accentGrad)" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+
+  <!-- Bolivia Map Outline Contour (Neon Green) -->
+  <path
+    d="M 675,348 
+       C 670,305 655,275 670,268
+       C 685,260 710,290 735,270
+       C 745,245 745,245 742,246
+       C 755,260 770,295 785,300
+       C 805,295 815,315 825,320
+       C 845,330 850,355 850,375
+       C 875,385 895,380 902,400
+       C 908,425 885,445 888,460
+       C 890,470 878,485 865,505
+       C 850,518 845,520 810,515
+       L 800,530"
+    fill="none"
+    stroke="#00FF40"
+    stroke-width="11"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#neon-glow)"
+  />
+
+  <!-- Main Rounded Rectangle Badge with Neon Green Outline -->
+  <rect
+    x="105"
+    y="340"
+    width="765"
+    height="380"
+    rx="62"
+    fill="#000000"
+    stroke="#00FF40"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#neon-glow)"
+  />
+
+  <!-- White Smartphone with Wrench (Top-Right on badge) -->
+  <g transform="translate(644, 318)">
+    <!-- Smartphone Outer Frame (Solid Black inside, White Border) -->
+    <rect 
+      x="0" 
+      y="0" 
+      width="112" 
+      height="190" 
+      rx="24" 
+      fill="#000000" 
+      stroke="#FFFFFF" 
+      stroke-width="10" 
+    />
+    <!-- Phone Ear Speaker -->
+    <rect x="36" y="16" width="40" height="7" rx="3.5" fill="#FFFFFF" />
+    
+    <!-- Phone Screen Inner Area -->
+    <rect x="12" y="34" width="88" height="118" rx="6" fill="#000000" />
+    
+    <!-- Screen Glass Diagonal Reflections -->
+    <line x1="14" y1="98" x2="72" y2="40" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" opacity="0.95" />
+    <line x1="14" y1="126" x2="96" y2="44" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" opacity="0.95" />
+    
+    <!-- Mechanical Open-Ended Wrench inside Screen -->
+    <g transform="translate(56, 95) rotate(-35)">
+      <!-- Wrench Jaw & Shaft -->
+      <path 
+        d="M -14,-34 
+           C -14,-26 -8,-22 0,-22 
+           C 8,-22 14,-26 14,-34 
+           C 22,-28 24,-16 20,-6 
+           L 8,0 
+           L 8,26 
+           C 8,32 2,36 -4,36 
+           C -10,36 -16,32 -16,26 
+           L -16,0 
+           L -20,-6 
+           C -24,-16 -22,-28 -14,-34 Z" 
+        fill="#FFFFFF" 
+      />
+      <!-- Circular Hole in Wrench Base -->
+      <circle cx="0" cy="26" r="4.5" fill="#000000" />
+    </g>
+
+    <!-- Circular Home Button on Bottom Bezel -->
+    <circle cx="56" cy="172" r="7" stroke="#FFFFFF" stroke-width="3.5" fill="none" />
   </g>
-  
-  <!-- Bottom Home Bar Indicator -->
-  <rect x="226" y="380" width="60" height="6" rx="3" fill="#FACC15"/>
+
+  <!-- "BOL" - Giant Bold Italic Neon Green Text -->
+  <text 
+    x="158" 
+    y="650" 
+    font-family="'Montserrat', 'Arial Black', Impact, sans-serif" 
+    font-weight="900" 
+    font-style="italic" 
+    font-size="250" 
+    fill="#00FF40" 
+    letter-spacing="-7"
+  >BOL</text>
+
+  <!-- ".FIX" - Bold Italic White Text -->
+  <text 
+    x="605" 
+    y="650" 
+    font-family="'Montserrat', 'Arial Black', sans-serif" 
+    font-weight="900" 
+    font-style="italic" 
+    font-size="148" 
+    fill="#FFFFFF" 
+    letter-spacing="-3"
+  >.FIX</text>
+
+  <!-- "By: Mauro Medina" - Clean White Bold Subtitle -->
+  <text 
+    x="820" 
+    y="695" 
+    text-anchor="end" 
+    font-family="'Montserrat', 'Inter', 'Arial', sans-serif" 
+    font-weight="800" 
+    font-size="33" 
+    fill="#FFFFFF" 
+    letter-spacing="1.2"
+  >By: Mauro Medina</text>
 </svg>

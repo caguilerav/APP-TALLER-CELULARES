@@ -37,7 +37,7 @@ const SETTINGS_KEY = 'taller_celulares_settings_v1';
 
 const DEFAULT_SETTINGS: WorkshopSettings = {
   workshopName: 'BOL.FIX',
-  workshopSlogan: 'Servicio Técnico Especializado & Soluciones Móviles',
+  workshopSlogan: 'By: Mauro Medina',
   phone: '777-12345 / 789-67890',
   address: 'Av. Principal N° 450, Galería Central Local 12',
   currencySymbol: 'Bs.',
@@ -1165,6 +1165,9 @@ export const mockDb = {
       ) {
         parsed.workshopName = 'BOL.FIX';
         localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, ...parsed }));
+      }
+      if (!parsed.workshopSlogan || parsed.workshopSlogan.includes('Servicio Técnico Especializado') || parsed.workshopSlogan.includes('Panel Administrativo')) {
+        parsed.workshopSlogan = 'By: Mauro Medina';
       }
       if (!parsed.defaultPhysicalStates || !Array.isArray(parsed.defaultPhysicalStates) || parsed.defaultPhysicalStates.length === 0) {
         parsed.defaultPhysicalStates = DEFAULT_SETTINGS.defaultPhysicalStates;

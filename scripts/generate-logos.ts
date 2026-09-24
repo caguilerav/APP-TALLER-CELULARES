@@ -1,4 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none">
+import fs from 'fs';
+
+// Exact representation of the user's uploaded "LOGO BOLFIX APP.png"
+// 1000x1000 square 1:1 original canvas with solid black background
+export const generateOriginalLogoSvg = (size = 1000) => {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="${size}" height="${size}" fill="none">
   <!-- Solid Black Background as in original image -->
   <rect width="1000" height="1000" fill="#000000" />
 
@@ -133,4 +138,16 @@
     fill="#FFFFFF" 
     letter-spacing="1.2"
   >By: Mauro Medina</text>
-</svg>
+</svg>`;
+};
+
+const fullSvg = generateOriginalLogoSvg(1000);
+
+// Write to all public assets
+fs.writeFileSync('public/logo.svg', fullSvg);
+fs.writeFileSync('public/pwa-icon.svg', fullSvg);
+fs.writeFileSync('public/icon-192.svg', fullSvg);
+fs.writeFileSync('public/icon-512.svg', fullSvg);
+fs.writeFileSync('public/favicon.svg', fullSvg);
+
+console.log('Original 1:1 square assets generated successfully!');

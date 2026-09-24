@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import BolFixLogo from './BolFixLogo';
 import { 
   ArrowLeft, 
   Smartphone, 
@@ -687,8 +688,8 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
             >
               {/* Header (100% Black) */}
               <div className="text-center pb-3 border-b-2 border-dashed border-black">
-                <div className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-black text-white mb-1.5 shadow-sm">
-                  <Wrench className="w-4 h-4 text-white stroke-[2.5]" />
+                <div className="inline-flex items-center justify-center mb-1.5">
+                  <BolFixLogo variant="icon" className="w-10 h-10 rounded-xl" />
                 </div>
                 <h1 className="text-sm font-black tracking-tight text-black uppercase leading-snug">
                   {workshopSettings.workshopName || 'BOL.FIX'}
@@ -827,19 +828,19 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
               {/* Header Corporativo Elegante */}
               <div className="flex justify-between items-start border-b border-gray-200 pb-6">
                 <div className="space-y-1.5 max-w-[420px]">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-gray-950 text-[#FACC15] flex items-center justify-center font-black shadow-md">
-                      <Wrench className="w-4 h-4" />
+                  <div className="flex items-center space-x-3">
+                    <BolFixLogo variant="icon" className="w-12 h-12 rounded-xl shadow-md shrink-0" />
+                    <div>
+                      <h1 className="text-xl font-black tracking-tight text-gray-950 uppercase leading-none">
+                        {workshopSettings.workshopName || 'BOL.FIX'}
+                      </h1>
+                      {workshopSettings.workshopSlogan && (
+                        <p className="text-xs font-bold text-[#00A82D] uppercase tracking-wider mt-1">
+                          {workshopSettings.workshopSlogan}
+                        </p>
+                      )}
                     </div>
-                    <h1 className="text-xl font-black tracking-tight text-gray-950 uppercase">
-                      {workshopSettings.workshopName || 'BOL.FIX'}
-                    </h1>
                   </div>
-                  {workshopSettings.workshopSlogan && (
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      {workshopSettings.workshopSlogan}
-                    </p>
-                  )}
                   <div className="text-[11px] text-gray-500 space-y-0.5 pt-0.5">
                     {workshopSettings.address && (
                       <p className="flex items-center space-x-1.5">

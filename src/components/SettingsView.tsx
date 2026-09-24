@@ -551,6 +551,16 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                     placeholder="Ej: Av. Principal N° 450, Galería Central"
                   />
                 </div>
+
+                <div className="pt-2 border-t border-gray-100 flex items-center space-x-3.5 bg-gray-50/70 p-3 rounded-2xl border border-gray-150">
+                  <div className="w-14 h-14 bg-black rounded-xl flex items-center justify-center p-1 shadow-md border border-gray-200 shrink-0">
+                    <img src="/pwa-icon.svg" alt="Logo BOL.FIX" className="w-full h-full object-contain rounded-lg" referrerPolicy="no-referrer" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-gray-900 block uppercase">Logotipo Oficial de la Empresa</span>
+                    <span className="text-[10px] text-emerald-600 font-bold block">✓ Activo como Ícono de la App, PWA, Favicon y Comprobantes</span>
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import BolFixLogo from './BolFixLogo';
 import { 
   ShoppingBag, 
   Search, 
@@ -918,11 +919,14 @@ export default function SalesView({ currentUser }: SalesViewProps) {
             <div id="printable-ticket" className="flex-1 overflow-y-auto space-y-4 font-mono text-xs pr-1">
               {/* Receipt Header */}
               <div className="text-center space-y-1">
+                <div className="flex justify-center mb-1">
+                  <BolFixLogo variant="icon" className="w-10 h-10 rounded-xl" />
+                </div>
                 <h3 className="text-base font-black tracking-tight text-center uppercase">
                   {mockDb.getSettings().workshopName || 'BOL.FIX'}
                 </h3>
-                <p className="text-[9px] text-gray-500 uppercase">
-                  {mockDb.getSettings().workshopSlogan || 'Servicio Técnico Especializado & Soluciones Móviles'}
+                <p className="text-[10px] font-bold text-gray-800 uppercase tracking-wide">
+                  {mockDb.getSettings().workshopSlogan || 'By: Mauro Medina'}
                 </p>
                 <p className="text-[9px] text-gray-400">
                   {mockDb.getSettings().phone || 'Telf: (+591) 78945612'}

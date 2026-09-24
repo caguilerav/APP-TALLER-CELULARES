@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Smartphone, X, CheckCircle2, Share, PlusSquare, Monitor } from 'lucide-react';
+import BolFixLogo from './BolFixLogo';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -168,9 +169,7 @@ export default function PWAInstallPrompt() {
         <div className="md:hidden mx-3 my-2 bg-black/75 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-2.5 px-3.5 flex items-center justify-between gap-3 text-white transition-all animate-fade-in z-30">
           {/* Left Side: App Icon & Title */}
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FACC15] to-amber-500 text-black font-black flex items-center justify-center shrink-0 shadow-md shadow-yellow-500/20">
-              <Smartphone className="w-4.5 h-4.5 text-black" />
-            </div>
+            <BolFixLogo variant="icon" className="w-9 h-9 rounded-xl shadow-md shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5">
                 <span className="text-xs font-extrabold tracking-wide text-white truncate">
@@ -227,9 +226,7 @@ export default function PWAInstallPrompt() {
             </button>
 
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 bg-black text-[#FACC15] rounded-3xl mx-auto flex items-center justify-center shadow-lg">
-                <Smartphone className="w-7 h-7" />
-              </div>
+              <BolFixLogo variant="icon" className="w-16 h-16 rounded-2xl mx-auto shadow-lg" />
               <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Instalar en iPhone / iPad</h3>
               <p className="text-xs text-gray-500">
                 Sigue estos dos sencillos pasos en Safari para tener la aplicación nativa en tu pantalla de inicio:
@@ -284,9 +281,7 @@ export default function PWAInstallPrompt() {
             </button>
 
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 bg-black text-[#FACC15] rounded-3xl mx-auto flex items-center justify-center shadow-lg">
-                <Smartphone className="w-7 h-7" />
-              </div>
+              <BolFixLogo variant="icon" className="w-16 h-16 rounded-2xl mx-auto shadow-lg" />
               <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Instalar Aplicación Nativa</h3>
               <p className="text-xs text-gray-500">
                 Para instalar la app directamente en tu teléfono, tablet o computadora sin pasar por tiendas de aplicaciones:
