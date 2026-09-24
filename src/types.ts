@@ -19,6 +19,9 @@ export interface User {
   name: string;
   role: UserRole;
   status: boolean;
+  commissionPercentage?: number; // e.g. 40 (%)
+  phone?: string;
+  specialty?: string;
   createdAt: string;
 }
 
@@ -67,9 +70,13 @@ export interface Order {
   spareParts?: UsedSparePart[]; // Spare parts associated to this repair
   isLaborOnly?: boolean; // When true, service is strictly labor only (customer provided parts or no parts needed)
   
-  // Finance
+  // Finance & Commission
   estimatedCost: number;
   advancePayment: number;
+  laborCost?: number;
+  commissionPercentage?: number;
+  commissionAmount?: number;
+  commissionPaid?: boolean;
   
   // Status & Tech
   status: OrderStatus;
@@ -215,6 +222,7 @@ export interface WorkshopSettings {
   customLogo?: string; // Base64 data URI or image URL uploaded by the user
   customAppIcon?: string; // Base64 data URI or icon URL for app icon & favicon
   appIconZoom?: number; // Porcentaje de zoom/escala del ícono de la app (40 a 100, default 75)
+  defaultTechnicianCommissionPercentage?: number; // Porcentaje por defecto de comisión (ej. 40)
 
   // Recepción & Órdenes
   otPrefix: string;

@@ -14,7 +14,8 @@ import {
   ShoppingBag, 
   ArrowRight,
   Sparkles,
-  SearchIcon
+  SearchIcon,
+  Wrench
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
 import { Order, Product, Sale, Client } from '../types';
@@ -137,12 +138,44 @@ export default function GlobalSearchView({
         {/* Results Container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
           {searchQuery.length < 2 ? (
-            <div className="py-12 text-center text-gray-400 space-y-2">
-              <SearchIcon className="w-10 h-10 text-gray-200 mx-auto" />
-              <p className="text-xs font-bold uppercase tracking-wider">Buscador Inteligente del Sistema</p>
-              <p className="text-[11px] max-w-md mx-auto leading-relaxed">
-                Escribe al menos <strong className="text-gray-600">2 caracteres</strong> para buscar de forma global. El buscador rastrea órdenes de trabajo, repuestos en inventario, clientes, ventas y números IMEI.
-              </p>
+            <div className="py-8 text-center text-gray-400 space-y-4">
+              <div className="space-y-1">
+                <SearchIcon className="w-8 h-8 text-gray-300 mx-auto" />
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-700">Buscador Inteligente del Sistema</p>
+                <p className="text-[11px] max-w-md mx-auto leading-relaxed text-gray-500">
+                  Escribe al menos <strong className="text-gray-700">2 caracteres</strong> para rastrear órdenes, repuestos, clientes o números IMEI.
+                </p>
+              </div>
+
+              {/* Quick Jump Buttons */}
+              <div className="pt-3 border-t border-gray-150 max-w-lg mx-auto">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2.5">
+                  Accesos Directos Rápidos
+                </span>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    onClick={() => { onSelectTab('panel_tecnico'); onClose(); }}
+                    className="px-3 py-1.5 bg-[#111111] hover:bg-black text-[#00FF40] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer border border-[#00FF40]/30"
+                  >
+                    <Wrench className="w-3.5 h-3.5 text-[#00FF40]" />
+                    <span>Panel del Técnico & Comisiones</span>
+                  </button>
+                  <button
+                    onClick={() => { onSelectTab('reparaciones'); onClose(); }}
+                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    <span>Lista de Reparaciones</span>
+                  </button>
+                  <button
+                    onClick={() => { onSelectTab('inventario'); onClose(); }}
+                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Package className="w-3.5 h-3.5" />
+                    <span>Inventario</span>
+                  </button>
+                </div>
+              </div>
             </div>
           ) : totalResultsCount === 0 ? (
             <div className="py-12 text-center text-gray-400 space-y-1">

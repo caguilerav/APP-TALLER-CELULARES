@@ -32,6 +32,7 @@ import InventoryView from './components/InventoryView';
 import SalesView from './components/SalesView';
 import ReportsView from './components/ReportsView';
 import SettingsView from './components/SettingsView';
+import TechnicianPanelView from './components/TechnicianPanelView';
 import GlobalSearchView from './components/GlobalSearchView';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import BolFixLogo from './components/BolFixLogo';
@@ -121,7 +122,11 @@ export default function App() {
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     localStorage.setItem('taller_celulares_active_user', JSON.stringify(user));
-    setActiveTab('dashboard');
+    if (user.role === 'TECHNICIAN') {
+      setActiveTab('panel_tecnico');
+    } else {
+      setActiveTab('dashboard');
+    }
     setActiveOrderId(null);
   };
 
@@ -241,6 +246,31 @@ export default function App() {
             >
               <ClipboardList className="w-4.5 h-4.5" />
               <span>Lista de Reparaciones</span>
+            </button>
+
+            {/* PANEL DEL TÉCNICO */}
+            <button
+              id="desktop-tab-panel-tecnico"
+              onClick={() => { setActiveTab('panel_tecnico'); setActiveOrderId(null); }}
+              className={`w-full flex items-center space-x-3.5 py-3 px-4 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'panel_tecnico' && !activeOrderId
+                  ? 'bg-[#00E63C] text-black shadow-md'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Wrench className="w-4.5 h-4.5 text-[#00E63C]" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Panel del Técnico</span>
+                {currentUser.role === 'TECHNICIAN' ? (
+                  <span className="text-[9px] bg-black/40 text-black px-1.5 py-0.5 rounded font-mono font-bold">
+                    Mis OTs
+                  </span>
+                ) : (
+                  <span className="text-[9px] bg-white/10 text-gray-300 px-1.5 py-0.5 rounded font-mono">
+                    Comisiones
+                  </span>
+                )}
+              </div>
             </button>
 
             <button
@@ -425,6 +455,12 @@ export default function App() {
                 initialFilter={listFilter}
               />
             )}
+            {activeTab === 'panel_tecnico' && (
+              <TechnicianPanelView
+                currentUser={currentUser}
+                onSelectOrder={handleSelectOrder}
+              />
+            )}
             {activeTab === 'inventario' && (
               <InventoryView currentUser={currentUser} />
             )}
@@ -475,6 +511,22 @@ export default function App() {
           >
             <PlusCircle className="w-5 h-5" />
             <span className="text-[9px] mt-0.5">Recibir</span>
+          </button>
+        )}
+
+        {/* Panel del Técnico for Mobile */}
+        {(currentUser.role === 'TECHNICIAN' || currentUser.role === 'ADMIN') && (
+          <button
+            id="mobile-tab-panel-tecnico"
+            onClick={() => { setActiveTab('panel_tecnico'); setActiveOrderId(null); }}
+            className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'panel_tecnico' && !activeOrderId
+                ? 'text-[#00B82B] font-extrabold bg-[#00E63C]/10 px-2.5'
+                : 'text-gray-400 font-medium'
+            }`}
+          >
+            <Wrench className="w-5 h-5 text-[#00E63C]" />
+            <span className="text-[9px] mt-0.5">Técnico</span>
           </button>
         )}
 

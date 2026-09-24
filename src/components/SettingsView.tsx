@@ -832,77 +832,27 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                       </div>
                     </div>
 
-                    {/* Control Interactivo de Zoom / Escala del Ícono */}
+                    {/* Control Sencillo de Zoom / Escala del Ícono */}
                     {(settings.customLogo || settings.customAppIcon || originalSettings.customLogo) && (
-                      <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-2.5 shadow-2xs">
+                      <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-1.5">
-                            <Sliders className="w-3.5 h-3.5 text-blue-600" />
-                            <span className="text-xs font-black text-gray-900 uppercase tracking-wide">
-                              Ajuste de Escala / Zoom del Ícono
-                            </span>
-                          </div>
-                          <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 font-mono">
-                            {settings.appIconZoom || 75}% {(settings.appIconZoom || 75) === 75 ? '· Óptimo' : ''}
+                          <label className="text-xs font-bold text-gray-700">
+                            Ajuste de Escala / Zoom del Ícono
+                          </label>
+                          <span className="text-xs font-bold text-gray-900 font-mono">
+                            {settings.appIconZoom || 75}%
                           </span>
                         </div>
 
-                        <p className="text-[11px] text-gray-500 leading-tight">
-                          Disminuye el zoom para que el logotipo no se corte en los bordes y respete el margen seguro de la pantalla de inicio del celular y pestaña del navegador:
-                        </p>
-
-                        {/* Slider bar */}
-                        <div className="flex items-center space-x-3 pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateIconZoom((settings.appIconZoom || 75) - 5)}
-                            className="w-7 h-7 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-black text-sm cursor-pointer active:scale-95 transition-all"
-                            title="Reducir zoom (alejar)"
-                          >
-                            −
-                          </button>
-                          <input
-                            type="range"
-                            min="45"
-                            max="100"
-                            step="5"
-                            value={settings.appIconZoom || 75}
-                            onChange={(e) => handleUpdateIconZoom(Number(e.target.value))}
-                            className="flex-1 accent-black h-2 bg-gray-200 rounded-lg cursor-pointer"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateIconZoom((settings.appIconZoom || 75) + 5)}
-                            className="w-7 h-7 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-black text-sm cursor-pointer active:scale-95 transition-all"
-                            title="Aumentar zoom (acercar)"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        {/* Presets */}
-                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                          <span className="text-[10px] text-gray-400 font-bold mr-1">Preajustes rápidos:</span>
-                          {[
-                            { label: '65% (Espacioso)', value: 65 },
-                            { label: '75% (Óptimo / Recomendado)', value: 75 },
-                            { label: '85% (Mediano)', value: 85 },
-                            { label: '100% (Sin margen)', value: 100 }
-                          ].map((preset) => (
-                            <button
-                              key={preset.value}
-                              type="button"
-                              onClick={() => handleUpdateIconZoom(preset.value)}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                                (settings.appIconZoom || 75) === preset.value
-                                  ? 'bg-black text-[#00FF40] shadow-xs'
-                                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                              }`}
-                            >
-                              {preset.label}
-                            </button>
-                          ))}
-                        </div>
+                        <input
+                          type="range"
+                          min="45"
+                          max="100"
+                          step="1"
+                          value={settings.appIconZoom || 75}
+                          onChange={(e) => handleUpdateIconZoom(Number(e.target.value))}
+                          className="w-full accent-black h-2 bg-gray-200 rounded-lg cursor-pointer"
+                        />
                       </div>
                     )}
 

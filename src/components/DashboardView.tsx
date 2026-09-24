@@ -198,25 +198,44 @@ export default function DashboardView({ currentUser, onNavigateToTab, onSelectOr
       </div>
 
       {/* Quick single-handed bottom triggers */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {(currentUser.role === 'ADMIN' || currentUser.role === 'RECEPTIONIST') && (
+          <button
+            id="quick-reception-btn"
+            onClick={() => onNavigateToTab('recepcion')}
+            className="flex items-center justify-between p-4 bg-[#FACC15] hover:bg-[#FACC15]/90 text-[#111111] rounded-2xl font-bold shadow-md hover:shadow-lg transition-all text-sm group cursor-pointer"
+          >
+            <div className="flex items-center space-x-2.5">
+              <div className="p-1.5 bg-black/10 rounded-xl">
+                <Plus className="w-5 h-5 text-black" />
+              </div>
+              <span>Recepción Rápida</span>
+            </div>
+            <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform text-[#111111]" />
+          </button>
+        )}
+
         <button
-          id="quick-reception-btn"
-          onClick={() => onNavigateToTab('recepcion')}
-          className="flex items-center justify-between p-4 bg-[#FACC15] hover:bg-[#FACC15]/90 text-[#111111] rounded-2xl font-bold shadow-md hover:shadow-lg transition-all text-sm group"
+          id="quick-tech-panel-btn"
+          onClick={() => onNavigateToTab('panel_tecnico')}
+          className="flex items-center justify-between p-4 bg-[#111111] hover:bg-black text-[#00FF40] rounded-2xl font-bold shadow-md hover:shadow-lg transition-all text-sm group cursor-pointer border border-[#00FF40]/30"
         >
           <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 bg-black/10 rounded-xl">
-              <Plus className="w-5 h-5 text-black" />
+            <div className="p-1.5 bg-[#00FF40]/10 rounded-xl">
+              <Wrench className="w-5 h-5 text-[#00FF40]" />
             </div>
-            <span>Recepción Rápida</span>
+            <div className="text-left">
+              <span className="block leading-tight text-white font-extrabold">Panel del Técnico</span>
+              <span className="text-[10px] text-[#00FF40] font-mono">Mis OTs & Comisiones</span>
+            </div>
           </div>
-          <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform text-[#111111]" />
+          <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform text-[#00FF40]" />
         </button>
 
         <button
           id="quick-list-btn"
           onClick={() => onNavigateToTab('reparaciones')}
-          className="flex items-center justify-between p-4 bg-white hover:bg-gray-50 text-[#111111] border border-gray-200 rounded-2xl font-bold shadow-sm transition-all text-sm group"
+          className="flex items-center justify-between p-4 bg-white hover:bg-gray-50 text-[#111111] border border-gray-200 rounded-2xl font-bold shadow-sm transition-all text-sm group cursor-pointer"
         >
           <div className="flex items-center space-x-2.5">
             <div className="p-1.5 bg-gray-100 rounded-xl">
