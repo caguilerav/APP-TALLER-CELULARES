@@ -26,7 +26,7 @@ import {
   Boxes
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
-import { Order, OrderStatus, User, UsedSparePart, Client, Product } from '../types';
+import { Order, OrderStatus, User, UsedSparePart, Client, Product, WorkshopSettings } from '../types';
 import PatternLockDrawer from './PatternLockDrawer';
 import { SparePartsInventoryModal } from './SparePartsInventoryModal';
 
@@ -245,10 +245,54 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [newModelName, setNewModelName] = useState('');
 
+  // Dynamic settings from WorkshopSettings
+  const [workshopSettings, setWorkshopSettings] = useState<WorkshopSettings>(() => mockDb.getSettings());
+  const [customAccessoryInput, setCustomAccessoryInput] = useState('');
+  const [showAddCustomAccessory, setShowAddCustomAccessory] = useState(false);
+  const [checklist, setChecklist] = useState<string[]>([]);
+
   // Lists for quick chips
   const POPULAR_BRANDS = ['Apple', 'Samsung', 'Xiaomi', 'Motorola', 'Huawei', 'Oppo', 'Realme'];
-  const ACCESSORY_OPTIONS = ['SIM', 'Memoria', 'Cargador', 'Caja', 'Funda', 'Otros'];
   const PHYSICAL_STATE_OPTIONS = ['Pantalla rota', 'No enciende', 'Mojado', 'Golpes', 'Tapa rota', 'Teléfono doblado'];
+
+  // Dynamic accessories list based on settings, keeping any custom selected accessories
+  const accessoryOptions = useMemo(() => {
+    const list = workshopSettings.defaultAccessoriesList && workshopSettings.defaultAccessoriesList.length > 0
+      ? [...workshopSettings.defaultAccessoriesList]
+      : ['SIM', 'Memoria SD', 'Cargador', 'Caja', 'Funda / Cover', 'S Pen / Stylus'];
+    accessories.forEach(acc => {
+      if (!list.includes(acc)) {
+        list.push(acc);
+      }
+    });
+    return list;
+  }, [workshopSettings.defaultAccessoriesList, accessories]);
+
+  // Dynamic checklist points based on settings
+  const checklistOptions = useMemo(() => {
+    return workshopSettings.defaultChecklist && workshopSettings.defaultChecklist.length > 0
+      ? workshopSettings.defaultChecklist
+      : ['Encendido', 'Pantalla / Táctil', 'Cámaras', 'Micrófono / Auricular', 'Carga / Puerto USB', 'Wi-Fi / Bluetooth', 'Lector SIM / Señal', 'Botones Físicos'];
+  }, [workshopSettings.defaultChecklist]);
+
+  const handleToggleChecklistItem = (item: string) => {
+    if (checklist.includes(item)) {
+      setChecklist(checklist.filter(i => i !== item));
+    } else {
+      setChecklist([...checklist, item]);
+    }
+  };
+
+  const handleAddCustomAccessory = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const val = customAccessoryInput.trim();
+    if (!val) return;
+    if (!accessories.includes(val)) {
+      setAccessories([...accessories, val]);
+    }
+    setCustomAccessoryInput('');
+    setShowAddCustomAccessory(false);
+  };
 
   // Google Lens Overlay States
   const [showLensModal, setShowLensModal] = useState(false);
@@ -328,6 +372,26 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
     // Load active products for spare parts
     const products = mockDb.getProducts();
     setAvailableProducts(products.filter(p => p.status === 'Activo'));
+
+    const handleSettingsUpdate = () => {
+      const current = mockDb.getSettings();
+      setWorkshopSettings(current);
+      setBrands(mockDb.getBrands());
+      setModelsMap(mockDb.getModelsMap());
+      const updatedUsers = mockDb.getUsers();
+      const updatedTechs = updatedUsers.filter(u => u.role === 'TECHNICIAN' || u.role === 'ADMIN');
+      setTechnicians(updatedTechs);
+      setClients(mockDb.getClients());
+      const updatedProducts = mockDb.getProducts();
+      setAvailableProducts(updatedProducts.filter(p => p.status === 'Activo'));
+    };
+
+    window.addEventListener('workshop_settings_saved', handleSettingsUpdate);
+    window.addEventListener('storage', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('workshop_settings_saved', handleSettingsUpdate);
+      window.removeEventListener('storage', handleSettingsUpdate);
+    };
   }, []);
 
   // Filter clients based on search query
@@ -455,6 +519,11 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
       return;
     }
 
+    if (workshopSettings.requireTechnicianAssigned && !assignedTechId) {
+      setError('La configuración del taller exige asignar un técnico responsable para poder registrar la orden.');
+      return;
+    }
+
     try {
       // 1. Get or create Client
       const client = mockDb.getOrCreateClient(
@@ -485,6 +554,7 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
         quickDiagnosis: quickDiagnosis || undefined,
         accessories,
         physicalState,
+        checklist: checklist.length > 0 ? checklist : undefined,
         images: images.length > 0 ? images : undefined,
         estimatedCost: costNum,
         advancePayment: advanceNum,
@@ -539,6 +609,9 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
     setQuickDiagnosis('');
     setAccessories([]);
     setPhysicalState([]);
+    setChecklist([]);
+    setCustomAccessoryInput('');
+    setShowAddCustomAccessory(false);
     setImages([]);
     setEstimatedCost('');
     setAdvancePayment('');
@@ -925,9 +998,9 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
           {/* Quick brand selector chips */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-500 block uppercase tracking-wide">Marcas Populares</label>
+            <label className="text-xs font-bold text-gray-500 block uppercase tracking-wide">Marcas Populares / Catálogo</label>
             <div className="flex flex-wrap gap-2">
-              {POPULAR_BRANDS.map(b => (
+              {(brands.length > 0 ? brands.slice(0, 12) : POPULAR_BRANDS).map(b => (
                 <button
                   id={`brand-chip-${b.toLowerCase()}`}
                   type="button"
@@ -1175,26 +1248,65 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
           {/* Accessories Selection */}
           <div className="space-y-2">
-            <span className="text-xs font-bold text-gray-600 block uppercase tracking-wide">Accesorios Recibidos</span>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {ACCESSORY_OPTIONS.map((acc) => {
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-600 block uppercase tracking-wide">Accesorios Recibidos</span>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomAccessory(!showAddCustomAccessory)}
+                className="text-[11px] font-bold text-gray-600 hover:text-black hover:underline flex items-center space-x-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 text-[#E2B810]" />
+                <span>+ Agregar otro</span>
+              </button>
+            </div>
+
+            {showAddCustomAccessory && (
+              <div className="flex gap-2 p-2 bg-yellow-50/60 rounded-xl border border-yellow-200 animate-fade-in">
+                <input
+                  type="text"
+                  value={customAccessoryInput}
+                  onChange={(e) => setCustomAccessoryInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomAccessory())}
+                  placeholder="Nombre de accesorio personalizado..."
+                  className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-black"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomAccessory}
+                  className="bg-black text-[#FACC15] px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-800 transition-all cursor-pointer"
+                >
+                  Agregar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomAccessory(false)}
+                  className="text-gray-400 hover:text-gray-600 px-2 py-1.5 text-xs cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+              {accessoryOptions.map((acc) => {
                 const selected = accessories.includes(acc);
                 return (
                   <button
-                    id={`accessory-btn-${acc.toLowerCase()}`}
+                    id={`accessory-btn-${acc.toLowerCase().replace(/[\s\/\(\)]+/g, '-')}`}
                     type="button"
                     key={acc}
                     onClick={() => handleToggleAccessory(acc)}
-                    className={`p-2.5 rounded-xl border text-xs font-bold text-center flex flex-col items-center justify-center space-y-1 transition-all ${
+                    className={`p-2.5 rounded-xl border text-xs font-bold text-center flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                       selected 
-                        ? 'bg-black text-[#FACC15] border-black shadow-sm' 
+                        ? 'bg-black text-[#FACC15] border-black shadow-sm scale-[1.02]' 
                         : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                     }`}
                   >
                     <div className={`w-4 h-4 rounded-full flex items-center justify-center border ${selected ? 'bg-[#FACC15] border-black text-black' : 'border-gray-300 bg-white'}`}>
                       {selected && <Check className="w-2.5 h-2.5 stroke-[3px]" />}
                     </div>
-                    <span>{acc}</span>
+                    <span className="truncate max-w-full">{acc}</span>
                   </button>
                 );
               })}
@@ -1204,30 +1316,63 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
           {/* Physical States Selection */}
           <div className="space-y-2 pt-2">
             <span className="text-xs font-bold text-gray-600 block uppercase tracking-wide">Detalles de Estado Estético</span>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
               {PHYSICAL_STATE_OPTIONS.map((state) => {
                 const selected = physicalState.includes(state);
                 return (
                   <button
-                    id={`state-btn-${state.toLowerCase().replace(/\s+/g, '-')}`}
+                    id={`state-btn-${state.toLowerCase().replace(/[\s\/\(\)]+/g, '-')}`}
                     type="button"
                     key={state}
                     onClick={() => handleTogglePhysicalState(state)}
-                    className={`p-2.5 rounded-xl border text-xs font-bold text-center flex flex-col items-center justify-center space-y-1 transition-all ${
+                    className={`p-2.5 rounded-xl border text-xs font-bold text-center flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                       selected 
-                        ? 'bg-black text-[#FACC15] border-black shadow-sm' 
+                        ? 'bg-black text-[#FACC15] border-black shadow-sm scale-[1.02]' 
                         : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                     }`}
                   >
                     <div className={`w-4 h-4 rounded-full flex items-center justify-center border ${selected ? 'bg-[#FACC15] border-black text-black' : 'border-gray-300 bg-white'}`}>
                       {selected && <Check className="w-2.5 h-2.5 stroke-[3px]" />}
                     </div>
-                    <span>{state}</span>
+                    <span className="truncate max-w-full">{state}</span>
                   </button>
                 );
               })}
             </div>
           </div>
+
+          {/* Checklist Points Initial Check */}
+          {checklistOptions.length > 0 && (
+            <div className="space-y-2 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-600 block uppercase tracking-wide">Puntos de Control / Chequeo Inicial (Checklist)</span>
+                <span className="text-[10px] font-bold text-gray-400 font-mono">{checklist.length}/{checklistOptions.length} verificados</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {checklistOptions.map((item) => {
+                  const selected = checklist.includes(item);
+                  return (
+                    <button
+                      id={`chk-${item.toLowerCase().replace(/[\s\/\(\)]+/g, '-')}`}
+                      type="button"
+                      key={item}
+                      onClick={() => handleToggleChecklistItem(item)}
+                      className={`p-2.5 rounded-xl border text-xs font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
+                        selected 
+                          ? 'bg-black text-[#FACC15] border-black shadow-sm' 
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${selected ? 'bg-[#FACC15] border-black text-black' : 'border-gray-300 bg-white'}`}>
+                        {selected && <Check className="w-2.5 h-2.5 stroke-[3px]" />}
+                      </div>
+                      <span className="truncate">{item}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Photos Selection Section */}
           <div className="space-y-3 pt-4 border-t border-gray-100">
@@ -1569,14 +1714,19 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-700 block">Técnico Asignado *</label>
+              <label className="text-xs font-bold text-gray-700 block">
+                Técnico Asignado {workshopSettings.requireTechnicianAssigned ? '*' : ''}
+              </label>
               <select
                 id="tech-assign-select"
-                required
+                required={workshopSettings.requireTechnicianAssigned}
                 value={assignedTechId}
                 onChange={(e) => setAssignedTechId(e.target.value)}
                 className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all cursor-pointer"
               >
+                {!workshopSettings.requireTechnicianAssigned && (
+                  <option value="">-- Sin asignar / Pendiente --</option>
+                )}
                 {technicians.map(t => (
                   <option key={t.id} value={t.id}>
                     {t.name} ({t.role === 'ADMIN' ? 'Admin' : 'Técnico'})
@@ -1600,10 +1750,10 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-700 block">Costo Mano de Obra (Bs.) *</label>
+              <label className="text-xs font-bold text-gray-700 block">Costo Mano de Obra ({workshopSettings.currencySymbol || 'Bs.'}) *</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                  <span className="text-gray-500 font-bold">Bs.</span>
+                  <span className="text-gray-500 font-bold">{workshopSettings.currencySymbol || 'Bs.'}</span>
                 </span>
                 <input
                   id="cost-input"
@@ -1619,10 +1769,10 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-700 block">Adelanto (Bs.)</label>
+              <label className="text-xs font-bold text-gray-700 block">Adelanto ({workshopSettings.currencySymbol || 'Bs.'})</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                  <span className="text-gray-500 font-bold">Bs.</span>
+                  <span className="text-gray-500 font-bold">{workshopSettings.currencySymbol || 'Bs.'}</span>
                 </span>
                 <input
                   id="advance-input"
@@ -1639,7 +1789,7 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
             {/* Quick Balance Output Card */}
             <div className="p-3.5 bg-[#FACC15]/10 rounded-2xl border border-[#FACC15]/20 flex flex-col justify-center">
               <span className="text-[10px] text-yellow-800 uppercase font-extrabold tracking-widest block">Restante a Pagar</span>
-              <span className="text-xl font-extrabold text-gray-900 font-mono block mt-0.5">Bs. {calculatedRemaining().toLocaleString('es-ES')}</span>
+              <span className="text-xl font-extrabold text-gray-900 font-mono block mt-0.5">{workshopSettings.currencySymbol || 'Bs.'} {calculatedRemaining().toLocaleString('es-ES')}</span>
             </div>
           </div>
         </div>

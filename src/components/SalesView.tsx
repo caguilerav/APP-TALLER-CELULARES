@@ -27,7 +27,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
-import { Product, Sale, SaleItem, Client, User as SystemUser } from '../types';
+import { Product, Sale, SaleItem, Client, User as SystemUser, WorkshopSettings } from '../types';
 
 interface SalesViewProps {
   currentUser: SystemUser;
@@ -69,6 +69,21 @@ export default function SalesView({ currentUser }: SalesViewProps) {
   const [discount, setDiscount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('Efectivo');
 
+  // Workshop Settings
+  const [workshopSettings, setWorkshopSettings] = useState<WorkshopSettings>(() => mockDb.getSettings());
+
+  const availablePaymentMethods = useMemo(() => {
+    return workshopSettings.enabledPaymentMethods && workshopSettings.enabledPaymentMethods.length > 0
+      ? workshopSettings.enabledPaymentMethods
+      : ['Efectivo', 'Tarjeta', 'Transferencia', 'QR', 'Pago Móvil'];
+  }, [workshopSettings.enabledPaymentMethods]);
+
+  useEffect(() => {
+    if (!availablePaymentMethods.includes(paymentMethod)) {
+      setPaymentMethod(availablePaymentMethods[0] || 'Efectivo');
+    }
+  }, [availablePaymentMethods]);
+
   // Print/Success Modal State
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
 
@@ -93,6 +108,18 @@ export default function SalesView({ currentUser }: SalesViewProps) {
 
   useEffect(() => {
     loadData();
+
+    const handleSettingsUpdate = () => {
+      setWorkshopSettings(mockDb.getSettings());
+      loadData();
+    };
+
+    window.addEventListener('workshop_settings_saved', handleSettingsUpdate);
+    window.addEventListener('storage', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('workshop_settings_saved', handleSettingsUpdate);
+      window.removeEventListener('storage', handleSettingsUpdate);
+    };
   }, []);
 
   // Unique categories of products
@@ -106,8 +133,8 @@ export default function SalesView({ currentUser }: SalesViewProps) {
       const updatedCart = [...cart];
       const newQty = updatedCart[existingIdx].quantity + 1;
       
-      // Stock check if product
-      if (item.type === 'PRODUCT' && item.stock !== undefined && newQty > item.stock) {
+      // Stock check if product and negative stock is not allowed
+      if (!workshopSettings.allowNegativeStock && item.type === 'PRODUCT' && item.stock !== undefined && newQty > item.stock) {
         alert(`No hay suficiente stock disponible. Stock máximo: ${item.stock}`);
         return;
       }
@@ -116,7 +143,7 @@ export default function SalesView({ currentUser }: SalesViewProps) {
       setCart(updatedCart);
     } else {
       // Stock check for first item
-      if (item.type === 'PRODUCT' && item.stock !== undefined && item.stock <= 0) {
+      if (!workshopSettings.allowNegativeStock && item.type === 'PRODUCT' && item.stock !== undefined && item.stock <= 0) {
         alert('Este producto está agotado.');
         return;
       }
@@ -143,7 +170,7 @@ export default function SalesView({ currentUser }: SalesViewProps) {
       updatedCart.splice(index, 1);
     } else {
       // Check stock if product
-      if (item.type === 'PRODUCT') {
+      if (!workshopSettings.allowNegativeStock && item.type === 'PRODUCT') {
         const prod = products.find(p => p.id === item.referenceId);
         if (prod && newQty > prod.stock) {
           alert(`No hay suficiente stock disponible. Stock máximo: ${prod.stock}`);
@@ -267,6 +294,13 @@ export default function SalesView({ currentUser }: SalesViewProps) {
       const newSale = mockDb.createSale(salePayload, currentUser.name);
       setCompletedSale(newSale);
       
+      // Auto-print ticket if enabled in workshop settings
+      if (workshopSettings.autoPrintTicket) {
+        setTimeout(() => {
+          window.print();
+        }, 500);
+      }
+
       // Refresh database records on sales screen
       loadData();
       
@@ -698,10 +732,9 @@ export default function SalesView({ currentUser }: SalesViewProps) {
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="block w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FACC15] transition-all cursor-pointer"
                   >
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Tarjeta">Tarjeta de Crédito / Débito</option>
-                    <option value="Transferencia">Transferencia Bancaria (QR)</option>
-                    <option value="Pago Móvil">Pago Móvil</option>
+                    {availablePaymentMethods.map(method => (
+                      <option key={method} value={method}>{method}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -712,31 +745,46 @@ export default function SalesView({ currentUser }: SalesViewProps) {
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500 font-semibold">Subtotal:</span>
                 <span className="font-bold text-gray-800 font-mono">
-                  Bs. {subtotal.toLocaleString('es-ES')}
+                  {workshopSettings.currencySymbol || 'Bs.'} {subtotal.toLocaleString('es-ES')}
                 </span>
               </div>
 
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500 font-semibold flex items-center gap-1">
                   <Tag className="w-3.5 h-3.5 text-gray-400" />
-                  <span>Descuento Especial (Bs.):</span>
+                  <span>Descuento Especial ({workshopSettings.currencySymbol || 'Bs.'}):</span>
                 </span>
-                <input
-                  id="sale-discount-input"
-                  type="number"
-                  min="0"
-                  max={subtotal}
-                  placeholder="0"
-                  value={discount || ''}
-                  onChange={(e) => setDiscount(Math.min(subtotal, Math.max(0, parseFloat(e.target.value) || 0)))}
-                  className="w-20 px-2 py-1 bg-white border border-gray-200 rounded-lg text-right text-xs font-bold font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
-                />
+                {workshopSettings.allowDiscounts ? (
+                  <div className="flex items-center space-x-1">
+                    <input
+                      id="sale-discount-input"
+                      type="number"
+                      min="0"
+                      max={workshopSettings.maxDiscountPercentage > 0 ? (subtotal * workshopSettings.maxDiscountPercentage) / 100 : subtotal}
+                      placeholder="0"
+                      value={discount || ''}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        const maxVal = workshopSettings.maxDiscountPercentage > 0
+                          ? (subtotal * workshopSettings.maxDiscountPercentage) / 100
+                          : subtotal;
+                        setDiscount(Math.min(maxVal, Math.max(0, val)));
+                      }}
+                      className="w-20 px-2 py-1 bg-white border border-gray-200 rounded-lg text-right text-xs font-bold font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                    />
+                    {workshopSettings.maxDiscountPercentage > 0 && (
+                      <span className="text-[9px] text-gray-400 font-mono">máx {workshopSettings.maxDiscountPercentage}%</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-gray-400 italic">Deshabilitado</span>
+                )}
               </div>
 
               <div className="flex justify-between items-center border-t border-gray-200 pt-2.5 mt-2.5">
                 <span className="text-xs font-black text-gray-900 uppercase">Total a Pagar:</span>
                 <span className="text-lg font-black text-emerald-700 font-mono">
-                  Bs. {total.toLocaleString('es-ES')}
+                  {workshopSettings.currencySymbol || 'Bs.'} {total.toLocaleString('es-ES')}
                 </span>
               </div>
             </div>

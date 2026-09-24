@@ -158,6 +158,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     };
     setSettings(updated);
     mockDb.saveSettings(updated);
+    onSettingsSaved?.(updated);
     setNewAccessory('');
     showSuccess('Accesorio añadido');
   };
@@ -169,6 +170,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     };
     setSettings(updated);
     mockDb.saveSettings(updated);
+    onSettingsSaved?.(updated);
   };
 
   // --- CHECKLIST HANDLERS ---
@@ -184,6 +186,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     };
     setSettings(updated);
     mockDb.saveSettings(updated);
+    onSettingsSaved?.(updated);
     setNewChecklistItem('');
     showSuccess('Punto de chequeo añadido');
   };
@@ -195,6 +198,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     };
     setSettings(updated);
     mockDb.saveSettings(updated);
+    onSettingsSaved?.(updated);
   };
 
   // --- CATEGORIES HANDLERS ---
@@ -210,6 +214,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     };
     setSettings(updated);
     mockDb.saveSettings(updated);
+    onSettingsSaved?.(updated);
     setNewCategory('');
     showSuccess('Categoría añadida');
   };
@@ -225,6 +230,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     };
     setSettings(updated);
     mockDb.saveSettings(updated);
+    onSettingsSaved?.(updated);
   };
 
   // --- BRANDS & MODELS HANDLERS ---
@@ -634,7 +640,12 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSettings({ ...settings, requireTechnicianAssigned: !settings.requireTechnicianAssigned })}
+                  onClick={() => {
+                    const updated = { ...settings, requireTechnicianAssigned: !settings.requireTechnicianAssigned };
+                    setSettings(updated);
+                    mockDb.saveSettings(updated);
+                    onSettingsSaved?.(updated);
+                  }}
                   className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                     settings.requireTechnicianAssigned ? 'bg-black' : 'bg-gray-300'
                   }`}
@@ -764,7 +775,12 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSettings({ ...settings, allowNegativeStock: !settings.allowNegativeStock })}
+                  onClick={() => {
+                    const updated = { ...settings, allowNegativeStock: !settings.allowNegativeStock };
+                    setSettings(updated);
+                    mockDb.saveSettings(updated);
+                    onSettingsSaved?.(updated);
+                  }}
                   className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                     settings.allowNegativeStock ? 'bg-black' : 'bg-gray-300'
                   }`}
@@ -842,7 +858,12 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSettings({ ...settings, allowDiscounts: !settings.allowDiscounts })}
+                  onClick={() => {
+                    const updated = { ...settings, allowDiscounts: !settings.allowDiscounts };
+                    setSettings(updated);
+                    mockDb.saveSettings(updated);
+                    onSettingsSaved?.(updated);
+                  }}
                   className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                     settings.allowDiscounts ? 'bg-black' : 'bg-gray-300'
                   }`}
@@ -877,7 +898,12 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSettings({ ...settings, autoPrintTicket: !settings.autoPrintTicket })}
+                  onClick={() => {
+                    const updated = { ...settings, autoPrintTicket: !settings.autoPrintTicket };
+                    setSettings(updated);
+                    mockDb.saveSettings(updated);
+                    onSettingsSaved?.(updated);
+                  }}
                   className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                     settings.autoPrintTicket ? 'bg-black' : 'bg-gray-300'
                   }`}
@@ -912,7 +938,10 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                         showError('Debe haber al menos un método de pago habilitado');
                         return;
                       }
-                      setSettings({ ...settings, enabledPaymentMethods: updatedMethods });
+                      const updated = { ...settings, enabledPaymentMethods: updatedMethods };
+                      setSettings(updated);
+                      mockDb.saveSettings(updated);
+                      onSettingsSaved?.(updated);
                     }}
                     className={`p-4 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center space-y-2 ${
                       isEnabled

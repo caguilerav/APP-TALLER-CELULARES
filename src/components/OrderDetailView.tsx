@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   ArrowLeft, 
@@ -179,7 +179,29 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
     'ENTREGADO'
   ];
 
-  const PAYMENT_METHODS = ['Efectivo', 'Tarjeta', 'Transferencia', 'Pago Móvil'];
+  const PAYMENT_METHODS = useMemo(() => {
+    return workshopSettings.enabledPaymentMethods && workshopSettings.enabledPaymentMethods.length > 0
+      ? workshopSettings.enabledPaymentMethods
+      : ['Efectivo', 'Tarjeta', 'Transferencia', 'Pago Móvil'];
+  }, [workshopSettings.enabledPaymentMethods]);
+
+  useEffect(() => {
+    if (!PAYMENT_METHODS.includes(paymentMethod)) {
+      setPaymentMethod(PAYMENT_METHODS[0] || 'Efectivo');
+    }
+  }, [PAYMENT_METHODS]);
+
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      setWorkshopSettings(mockDb.getSettings());
+    };
+    window.addEventListener('workshop_settings_saved', handleSettingsUpdate);
+    window.addEventListener('storage', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('workshop_settings_saved', handleSettingsUpdate);
+      window.removeEventListener('storage', handleSettingsUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     loadOrderDetails();
@@ -1206,6 +1228,12 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
                   <span className="text-gray-400 block text-[9px] uppercase font-bold">Estado físico</span>
                   <span className="font-medium text-gray-800">{order.physicalState.join(', ') || 'Normal'}</span>
                 </div>
+                {order.checklist && order.checklist.length > 0 && (
+                  <div className="col-span-2 pt-1 border-t border-gray-100">
+                    <span className="text-gray-400 block text-[9px] uppercase font-bold">Chequeo Inicial Verificado</span>
+                    <span className="font-medium text-gray-800">{order.checklist.join(' • ')}</span>
+                  </div>
+                )}
               </div>
 
               {/* Device Photos Showcase */}

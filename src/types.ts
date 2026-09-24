@@ -62,6 +62,7 @@ export interface Order {
   quickDiagnosis?: string;
   accessories: string[]; // 'SIM', 'Memoria', 'Cargador', 'Caja', 'Funda', 'Otros'
   physicalState: string[]; // 'Pantalla rota', 'No enciende', 'Mojado', 'Golpes', 'Rayones'
+  checklist?: string[]; // Puntos de control verificados en recepción
   images?: string[]; // Base64 or Object URL of photos of the device
   spareParts?: UsedSparePart[]; // Spare parts associated to this repair
   isLaborOnly?: boolean; // When true, service is strictly labor only (customer provided parts or no parts needed)

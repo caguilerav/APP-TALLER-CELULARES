@@ -747,17 +747,19 @@ export const mockDb = {
   // Order Operations
   createOrder(orderData: Omit<Order, 'id' | 'otNumber' | 'createdAt' | 'updatedAt'>, createdByUser: string): Order {
     const orders = this.getOrders();
+    const settings = this.getSettings();
+    const prefix = settings.otPrefix || 'OT-';
     
-    // Generate next OT Number: e.g. OT-000006
+    // Generate next OT Number: e.g. OT-000006 or customized prefix
     const lastOtNumber = orders
       .map(o => {
-        const num = parseInt(o.otNumber.replace('OT-', ''), 10);
-        return isNaN(num) ? 0 : num;
+        const match = o.otNumber ? o.otNumber.match(/(\d+)$/) : null;
+        return match ? parseInt(match[1], 10) : 0;
       })
       .reduce((max, val) => Math.max(max, val), 0);
     
     const nextNum = lastOtNumber + 1;
-    const otNumber = `OT-${String(nextNum).padStart(6, '0')}`;
+    const otNumber = `${prefix}${String(nextNum).padStart(6, '0')}`;
     
     const newOrder: Order = {
       ...orderData,
@@ -1027,7 +1029,10 @@ export const mockDb = {
       const products = this.getProducts();
       const pIdx = products.findIndex(p => p.id === newMov.productId);
       if (pIdx !== -1) {
-        products[pIdx].stock = Math.max(0, products[pIdx].stock - newMov.quantity);
+        const allowNeg = !!this.getSettings().allowNegativeStock;
+        products[pIdx].stock = allowNeg
+          ? products[pIdx].stock - newMov.quantity
+          : Math.max(0, products[pIdx].stock - newMov.quantity);
         this.saveProducts(products);
       }
     } else if (newMov.type === 'ENTRADA' || newMov.type === 'DEVOLUCION') {
@@ -1157,6 +1162,10 @@ export const mockDb = {
 
   saveSettings(newSettings: WorkshopSettings) {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('workshop_settings_saved', { detail: newSettings }));
+      window.dispatchEvent(new Event('storage'));
+    }
   },
 
   // === USER MANAGEMENT OPERATIONS ===

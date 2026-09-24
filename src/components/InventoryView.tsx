@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Package, 
   Search, 
@@ -29,7 +29,7 @@ import {
   List
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
-import { Product, ProductCategory, InventoryMovement, MovementType, User } from '../types';
+import { Product, ProductCategory, InventoryMovement, MovementType, User, WorkshopSettings } from '../types';
 
 interface InventoryViewProps {
   currentUser: User;
@@ -83,9 +83,23 @@ export default function InventoryView({ currentUser }: InventoryViewProps) {
     status: 'Activo' as 'Activo' | 'Inactivo'
   });
 
-  // Load database on mount
+  const [workshopSettings, setWorkshopSettings] = useState<WorkshopSettings>(() => mockDb.getSettings());
+
+  // Load database on mount and listen to settings updates
   useEffect(() => {
     loadData();
+
+    const handleSettingsUpdate = () => {
+      setWorkshopSettings(mockDb.getSettings());
+      loadData();
+    };
+
+    window.addEventListener('workshop_settings_saved', handleSettingsUpdate);
+    window.addEventListener('storage', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('workshop_settings_saved', handleSettingsUpdate);
+      window.removeEventListener('storage', handleSettingsUpdate);
+    };
   }, []);
 
   const loadData = () => {
@@ -93,12 +107,17 @@ export default function InventoryView({ currentUser }: InventoryViewProps) {
     setMovements(mockDb.getMovements());
   };
 
-  // Categories list
-  const categories: ProductCategory[] = [
-    'Pantallas', 'Glass', 'Baterías', 'Centros de carga', 'Flex', 'Cámaras', 
-    'Tapas', 'Micrófonos', 'Parlantes', 'Botones', 'Conectores', 'IC', 
-    'Herramientas', 'Accesorios', 'Otros'
-  ];
+  // Dynamic categories list from settings
+  const categories: ProductCategory[] = useMemo(() => {
+    const list = workshopSettings.categoriesList && workshopSettings.categoriesList.length > 0
+      ? workshopSettings.categoriesList
+      : [
+          'Pantallas', 'Glass', 'Baterías', 'Centros de carga', 'Flex', 'Cámaras', 
+          'Tapas', 'Micrófonos', 'Parlantes', 'Botones', 'Conectores', 'IC', 
+          'Herramientas', 'Accesorios', 'Otros'
+        ];
+    return list as ProductCategory[];
+  }, [workshopSettings.categoriesList]);
 
   // Filter products
   const filteredProducts = products.filter(p => {
@@ -142,7 +161,7 @@ export default function InventoryView({ currentUser }: InventoryViewProps) {
       code: `PROD-${Date.now().toString().slice(-6)}`,
       barcode: '',
       name: '',
-      category: 'Pantallas',
+      category: (categories[0] || 'Pantallas') as ProductCategory,
       brand: '',
       compatibleModel: '',
       description: '',
@@ -150,7 +169,7 @@ export default function InventoryView({ currentUser }: InventoryViewProps) {
       purchasePrice: 0,
       salePrice: 0,
       stock: 0,
-      minStock: 5,
+      minStock: workshopSettings.defaultMinStock || 3,
       location: '',
       status: 'Activo'
     });
