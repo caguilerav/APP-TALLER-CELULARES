@@ -1,16 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { mockDb } from '../db/mockDb';
 
 interface BolFixLogoProps {
   variant?: 'icon' | 'badge' | 'full';
   className?: string;
   glow?: boolean;
+  customLogo?: string;
 }
 
 export const BolFixLogo: React.FC<BolFixLogoProps> = ({
   variant = 'badge',
   className = 'w-auto h-12',
-  glow = true
+  glow = true,
+  customLogo: customLogoProp
 }) => {
+  const [activeLogo, setActiveLogo] = useState<string>(() => {
+    if (customLogoProp !== undefined) return customLogoProp;
+    return mockDb.getSettings()?.customLogo || '';
+  });
+
+  useEffect(() => {
+    if (customLogoProp !== undefined) {
+      setActiveLogo(customLogoProp);
+      return;
+    }
+
+    const updateLogo = () => {
+      const current = mockDb.getSettings()?.customLogo || '';
+      setActiveLogo(current);
+    };
+
+    window.addEventListener('workshop_settings_saved', updateLogo);
+    window.addEventListener('custom_logo_updated', updateLogo);
+    window.addEventListener('storage', updateLogo);
+
+    return () => {
+      window.removeEventListener('workshop_settings_saved', updateLogo);
+      window.removeEventListener('custom_logo_updated', updateLogo);
+      window.removeEventListener('storage', updateLogo);
+    };
+  }, [customLogoProp]);
+
+  // If a custom logo has been uploaded by the user, render it seamlessly
+  if (activeLogo) {
+    return (
+      <div className={`relative inline-flex items-center justify-center shrink-0 overflow-hidden ${className}`}>
+        <img
+          src={activeLogo}
+          alt={mockDb.getSettings()?.workshopName || 'Logo de la empresa'}
+          className="w-full h-full object-contain rounded-xl"
+          referrerPolicy="no-referrer"
+        />
+      </div>
+    );
+  }
+
+  // Otherwise, render the default official BOL.FIX brand graphics
   if (variant === 'icon') {
     return (
       <div className={`relative inline-flex items-center justify-center shrink-0 overflow-hidden ${className}`}>

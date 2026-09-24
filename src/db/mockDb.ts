@@ -44,6 +44,7 @@ const DEFAULT_SETTINGS: WorkshopSettings = {
   ticketFooterMessage: '¡Gracias por confiar en BOL.FIX! Todo trabajo técnico cuenta con garantía.',
   defaultWarrantyDays: 30,
   taxPercentage: 0,
+  customLogo: '',
 
   otPrefix: 'OT-',
   requireTechnicianAssigned: false,

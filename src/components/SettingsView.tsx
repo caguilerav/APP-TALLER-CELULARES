@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Store,
   ClipboardList,
@@ -40,8 +40,16 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
   const [activeTab, setActiveTab] = useState<SettingsTab>('GENERAL');
   
   // Settings state
-  const [settings, setSettings] = useState<WorkshopSettings>(mockDb.getSettings());
+  const [settings, setSettings] = useState<WorkshopSettings>(() => mockDb.getSettings());
+  const [originalSettings, setOriginalSettings] = useState<WorkshopSettings>(() => mockDb.getSettings());
   const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  const hasUnsavedChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
+
+  const handleDiscardChanges = () => {
+    setSettings(originalSettings);
+    showSuccess('Se han restablecido los cambios al último estado guardado');
+  };
   
   // Users state
   const [users, setUsers] = useState<User[]>(mockDb.getUsers());
@@ -69,8 +77,101 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
   // Backup restore
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
+  // Custom Logo Upload
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showError('Por favor selecciona un archivo de imagen válido (PNG, JPG, WEBP, SVG).');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      showError('La imagen es demasiado grande. Selecciona un archivo de menos de 8MB.');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    const reader = new FileReader();
+
+    reader.onload = (readerEvent) => {
+      const result = readerEvent.target?.result as string;
+      if (!result) {
+        setIsUploadingLogo(false);
+        return;
+      }
+
+      if (file.type.includes('svg')) {
+        saveNewLogo(result);
+        return;
+      }
+
+      // Resize/compress to fit cleanly in storage while maintaining high sharpness (max 600x600 px)
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 600;
+        let { width, height } = img;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.92);
+          saveNewLogo(compressedDataUrl);
+        } else {
+          saveNewLogo(result);
+        }
+      };
+      img.onerror = () => {
+        saveNewLogo(result);
+      };
+      img.src = result;
+    };
+
+    reader.onerror = () => {
+      setIsUploadingLogo(false);
+      showError('Error al leer la imagen seleccionada.');
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const saveNewLogo = (logoDataUrl: string) => {
+    setSettings(prev => ({ ...prev, customLogo: logoDataUrl }));
+    setIsUploadingLogo(false);
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
+    showSuccess('Foto cargada en vista previa. Haz clic en "Guardar Cambios" para aplicarla en la app.');
+  };
+
+  const handleRemoveCustomLogo = () => {
+    setSettings(prev => ({ ...prev, customLogo: '' }));
+    showSuccess('Foto removida en vista previa. Haz clic en "Guardar Cambios" para confirmar.');
+  };
+
   useEffect(() => {
-    setSettings(mockDb.getSettings());
+    const loaded = mockDb.getSettings();
+    setSettings(loaded);
+    setOriginalSettings(loaded);
     setUsers(mockDb.getUsers());
     const loadedBrands = mockDb.getBrands();
     setBrands(loadedBrands);
@@ -85,6 +186,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     try {
       // 1. Save general settings
       mockDb.saveSettings(settings);
+      setOriginalSettings(settings);
 
       // 2. Save brands & models
       mockDb.saveBrands(brands);
@@ -98,7 +200,21 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
         document.title = `${settings.workshopName} - Gestión de Servicio Técnico`;
       }
 
-      // 5. Dispatch global events for instant app-wide synchronization
+      // 5. Update favicon and touch icon if customLogo changed or restored
+      if (settings.customLogo) {
+        const fav = document.querySelector('link[rel="icon"]');
+        if (fav) fav.setAttribute('href', settings.customLogo);
+        const appleFav = document.querySelector('link[rel="apple-touch-icon"]');
+        if (appleFav) appleFav.setAttribute('href', settings.customLogo);
+      } else {
+        const fav = document.querySelector('link[rel="icon"]');
+        if (fav) fav.setAttribute('href', '/favicon.svg');
+        const appleFav = document.querySelector('link[rel="apple-touch-icon"]');
+        if (appleFav) appleFav.setAttribute('href', '/pwa-icon.svg');
+      }
+
+      // 6. Dispatch global events for instant app-wide synchronization
+      window.dispatchEvent(new CustomEvent('custom_logo_updated', { detail: settings.customLogo || '' }));
       window.dispatchEvent(new CustomEvent('workshop_settings_saved', { detail: settings }));
       window.dispatchEvent(new Event('storage'));
 
@@ -111,7 +227,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
       console.error('Error saving settings:', e);
       showError('Hubo un error al guardar la configuración');
     } finally {
-      setTimeout(() => setIsSaving(false), 500);
+      setTimeout(() => setIsSaving(false), 400);
     }
   };
 
@@ -128,11 +244,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
   }, [settings, brands, modelsMap, users, onSettingsSaved]);
 
   const handleZoomChange = (newZoom: number) => {
-    setSettings(prev => {
-      const updated = { ...prev, appZoom: newZoom };
-      mockDb.saveSettings(updated);
-      return updated;
-    });
+    setSettings(prev => ({ ...prev, appZoom: newZoom }));
   };
 
   const showSuccess = (msg: string) => {
@@ -152,25 +264,19 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
       showError('El accesorio ya existe en la lista');
       return;
     }
-    const updated = {
-      ...settings,
-      defaultAccessoriesList: [...settings.defaultAccessoriesList, newAccessory.trim()]
-    };
-    setSettings(updated);
-    mockDb.saveSettings(updated);
-    onSettingsSaved?.(updated);
+    setSettings(prev => ({
+      ...prev,
+      defaultAccessoriesList: [...prev.defaultAccessoriesList, newAccessory.trim()]
+    }));
     setNewAccessory('');
-    showSuccess('Accesorio añadido');
+    showSuccess('Accesorio añadido a la lista previa');
   };
 
   const handleRemoveAccessory = (acc: string) => {
-    const updated = {
-      ...settings,
-      defaultAccessoriesList: settings.defaultAccessoriesList.filter(item => item !== acc)
-    };
-    setSettings(updated);
-    mockDb.saveSettings(updated);
-    onSettingsSaved?.(updated);
+    setSettings(prev => ({
+      ...prev,
+      defaultAccessoriesList: prev.defaultAccessoriesList.filter(item => item !== acc)
+    }));
   };
 
   // --- PHYSICAL STATE HANDLERS ---
@@ -181,27 +287,20 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
       showError('La opción de estado estético ya existe');
       return;
     }
-    const updated = {
-      ...settings,
+    setSettings(prev => ({
+      ...prev,
       defaultPhysicalStates: [...currentList, newPhysicalState.trim()]
-    };
-    setSettings(updated);
-    mockDb.saveSettings(updated);
-    onSettingsSaved?.(updated);
+    }));
     setNewPhysicalState('');
-    showSuccess('Opción de estado estético añadida');
+    showSuccess('Opción añadida a la lista previa');
   };
 
   const handleRemovePhysicalState = (stateItem: string) => {
     const currentList = settings.defaultPhysicalStates || [];
-    const updated = {
-      ...settings,
+    setSettings(prev => ({
+      ...prev,
       defaultPhysicalStates: currentList.filter(item => item !== stateItem)
-    };
-    setSettings(updated);
-    mockDb.saveSettings(updated);
-    onSettingsSaved?.(updated);
-    showSuccess('Opción eliminada');
+    }));
   };
 
   // --- CATEGORIES HANDLERS ---
@@ -211,15 +310,12 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
       showError('La categoría ya existe');
       return;
     }
-    const updated = {
-      ...settings,
-      categoriesList: [...settings.categoriesList, newCategory.trim()]
-    };
-    setSettings(updated);
-    mockDb.saveSettings(updated);
-    onSettingsSaved?.(updated);
+    setSettings(prev => ({
+      ...prev,
+      categoriesList: [...prev.categoriesList, newCategory.trim()]
+    }));
     setNewCategory('');
-    showSuccess('Categoría añadida');
+    showSuccess('Categoría añadida a la lista previa');
   };
 
   const handleRemoveCategory = (cat: string) => {
@@ -227,13 +323,10 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
       showError('Debe mantener al menos una categoría');
       return;
     }
-    const updated = {
-      ...settings,
-      categoriesList: settings.categoriesList.filter(c => c !== cat)
-    };
-    setSettings(updated);
-    mockDb.saveSettings(updated);
-    onSettingsSaved?.(updated);
+    setSettings(prev => ({
+      ...prev,
+      categoriesList: prev.categoriesList.filter(c => c !== cat)
+    }));
   };
 
   // --- BRANDS & MODELS HANDLERS ---
@@ -372,7 +465,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     <div className="space-y-6 animate-fade-in pb-28 md:pb-24">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#111111] to-[#222222] text-white p-6 md:p-8 rounded-3xl shadow-md border border-gray-800">
+      <div className="bg-gradient-to-r from-[#111111] to-[#222222] text-white p-6 md:p-8 rounded-3xl shadow-md border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center space-x-2 bg-[#FACC15]/10 border border-[#FACC15]/30 px-3 py-1 rounded-full text-[#FACC15] text-xs font-bold uppercase tracking-wider mb-2">
             <Lock className="w-3.5 h-3.5" />
@@ -385,7 +478,70 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
             Personaliza los datos del taller, formatos de recepción, parámetros de inventario, caja y cuentas de personal.
           </p>
         </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          {hasUnsavedChanges && (
+            <button
+              type="button"
+              onClick={handleDiscardChanges}
+              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white rounded-2xl text-xs font-bold transition-all cursor-pointer"
+            >
+              Descartar
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleSaveSettings}
+            disabled={isSaving}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase transition-all flex items-center space-x-2 cursor-pointer shadow-md ${
+              hasUnsavedChanges
+                ? 'bg-[#FACC15] hover:bg-yellow-400 text-black ring-4 ring-[#FACC15]/20 animate-pulse'
+                : 'bg-white/10 hover:bg-white/20 text-white'
+            }`}
+          >
+            {isSaving ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Guardando...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Guardar Cambios</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Unsaved changes notice banner */}
+      {hasUnsavedChanges && (
+        <div className="bg-amber-500/10 border-2 border-amber-500/30 text-amber-900 dark:text-amber-300 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in shadow-xs">
+          <div className="flex items-center space-x-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <p className="text-xs font-black">
+              Tienes cambios pendientes sin guardar. Cualquier modificación solo se aplicará al hacer clic en "Guardar Cambios".
+            </p>
+          </div>
+          <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={handleDiscardChanges}
+              className="text-xs text-amber-800 hover:underline font-bold px-2 py-1 cursor-pointer"
+            >
+              Descartar
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveSettings}
+              className="bg-black text-[#FACC15] px-3.5 py-1.5 rounded-xl text-xs font-black hover:bg-gray-800 transition-all cursor-pointer shadow-xs"
+            >
+              Guardar Ahora
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Floating Success / Error Notification */}
       {savedSuccess && (
@@ -552,13 +708,92 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                   />
                 </div>
 
-                <div className="pt-2 border-t border-gray-100 flex items-center space-x-3.5 bg-gray-50/70 p-3 rounded-2xl border border-gray-150">
-                  <div className="w-14 h-14 bg-black rounded-xl flex items-center justify-center p-1 shadow-md border border-gray-200 shrink-0">
-                    <img src="/pwa-icon.svg" alt="Logo BOL.FIX" className="w-full h-full object-contain rounded-lg" referrerPolicy="no-referrer" />
+                {/* LOGO DE LA EMPRESA & APP CON SUBIDA DE FOTO */}
+                <div className="pt-3 border-t border-gray-150 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-xs font-black text-gray-900 uppercase tracking-wide">
+                        Foto / Logotipo de la App
+                      </label>
+                      <p className="text-[11px] text-gray-500">
+                        Personaliza el logo visible en la barra lateral, recibos, acceso y favicon
+                      </p>
+                    </div>
+                    {settings.customLogo ? (
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200 shadow-2xs">
+                        <Check className="w-3 h-3 text-emerald-600" /> Foto personalizada activa
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full border border-gray-200">
+                        Predeterminado BOL.FIX
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <span className="text-xs font-black text-gray-900 block uppercase">Logotipo Oficial de la Empresa</span>
-                    <span className="text-[10px] text-emerald-600 font-bold block">✓ Activo como Ícono de la App, PWA, Favicon y Comprobantes</span>
+
+                  {/* Logo Preview & Upload Controls */}
+                  <div className="flex flex-col sm:flex-row items-center gap-4 p-3.5 bg-gray-50/80 rounded-2xl border border-gray-200">
+                    {/* Visual Box */}
+                    <div className="w-20 h-20 bg-black rounded-2xl p-1.5 flex items-center justify-center shadow-md border-2 border-gray-300 relative group shrink-0 overflow-hidden">
+                      {settings.customLogo ? (
+                        <img 
+                          src={settings.customLogo} 
+                          alt="Logo del Taller" 
+                          className="w-full h-full object-contain rounded-xl"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <img 
+                          src="/pwa-icon.svg" 
+                          alt="Logo BOL.FIX" 
+                          className="w-full h-full object-contain rounded-xl"
+                          referrerPolicy="no-referrer" 
+                        />
+                      )}
+                    </div>
+
+                    {/* Action buttons and information */}
+                    <div className="flex-1 space-y-2 text-center sm:text-left w-full">
+                      <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                        {/* Hidden file input */}
+                        <input
+                          type="file"
+                          ref={logoInputRef}
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          onChange={handleLogoFileSelect}
+                          className="hidden"
+                        />
+                        
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          disabled={isUploadingLogo}
+                          className="px-3.5 py-2 bg-black hover:bg-gray-800 text-[#00FF40] hover:text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                        >
+                          {isUploadingLogo ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#00FF40]" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5 text-[#00FF40]" />
+                          )}
+                          <span>{isUploadingLogo ? 'Procesando foto...' : 'Subir Foto de Logo'}</span>
+                        </button>
+
+                        {settings.customLogo && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveCustomLogo}
+                            className="px-3 py-2 bg-white hover:bg-red-50 text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                            title="Volver al logo original BOL.FIX"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Restaurar Original</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <p className="text-[10px] text-gray-500 leading-tight">
+                        Puedes subir cualquier foto en formato PNG, JPG o WEBP (recomendado 1:1). Se sincronizará inmediatamente como logo del taller e ícono en toda la aplicación.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -654,10 +889,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                 <button
                   type="button"
                   onClick={() => {
-                    const updated = { ...settings, requireTechnicianAssigned: !settings.requireTechnicianAssigned };
-                    setSettings(updated);
-                    mockDb.saveSettings(updated);
-                    onSettingsSaved?.(updated);
+                    setSettings(prev => ({ ...prev, requireTechnicianAssigned: !prev.requireTechnicianAssigned }));
                   }}
                   className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                     settings.requireTechnicianAssigned ? 'bg-black' : 'bg-gray-300'
@@ -790,10 +1022,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                 <button
                   type="button"
                   onClick={() => {
-                    const updated = { ...settings, allowNegativeStock: !settings.allowNegativeStock };
-                    setSettings(updated);
-                    mockDb.saveSettings(updated);
-                    onSettingsSaved?.(updated);
+                    setSettings(prev => ({ ...prev, allowNegativeStock: !prev.allowNegativeStock }));
                   }}
                   className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                     settings.allowNegativeStock ? 'bg-black' : 'bg-gray-300'
@@ -873,10 +1102,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                 <button
                   type="button"
                   onClick={() => {
-                    const updated = { ...settings, allowDiscounts: !settings.allowDiscounts };
-                    setSettings(updated);
-                    mockDb.saveSettings(updated);
-                    onSettingsSaved?.(updated);
+                    setSettings(prev => ({ ...prev, allowDiscounts: !prev.allowDiscounts }));
                   }}
                   className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                     settings.allowDiscounts ? 'bg-black' : 'bg-gray-300'
@@ -913,10 +1139,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                 <button
                   type="button"
                   onClick={() => {
-                    const updated = { ...settings, autoPrintTicket: !settings.autoPrintTicket };
-                    setSettings(updated);
-                    mockDb.saveSettings(updated);
-                    onSettingsSaved?.(updated);
+                    setSettings(prev => ({ ...prev, autoPrintTicket: !prev.autoPrintTicket }));
                   }}
                   className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                     settings.autoPrintTicket ? 'bg-black' : 'bg-gray-300'
@@ -952,10 +1175,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                         showError('Debe haber al menos un método de pago habilitado');
                         return;
                       }
-                      const updated = { ...settings, enabledPaymentMethods: updatedMethods };
-                      setSettings(updated);
-                      mockDb.saveSettings(updated);
-                      onSettingsSaved?.(updated);
+                      setSettings(prev => ({ ...prev, enabledPaymentMethods: updatedMethods }));
                     }}
                     className={`p-4 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center space-y-2 ${
                       isEnabled
@@ -1366,7 +1586,11 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
           type="button"
           onClick={handleSaveSettings}
           disabled={isSaving}
-          className="bg-[#FACC15] hover:bg-yellow-400 active:scale-95 text-black font-black text-xs uppercase px-5 py-2.5 rounded-full transition-all flex items-center space-x-2 shadow-[0_10px_30px_rgba(0,0,0,0.45)] border-2 border-black/15 cursor-pointer disabled:opacity-75 whitespace-nowrap"
+          className={`active:scale-95 text-black font-black text-xs uppercase px-5 py-2.5 rounded-full transition-all flex items-center space-x-2 shadow-[0_10px_30px_rgba(0,0,0,0.45)] border-2 cursor-pointer disabled:opacity-75 whitespace-nowrap ${
+            hasUnsavedChanges
+              ? 'bg-[#00FF40] hover:bg-emerald-400 border-black/20 ring-4 ring-[#00FF40]/30 animate-pulse'
+              : 'bg-[#FACC15] hover:bg-yellow-400 border-black/15'
+          }`}
           title="Guardar Cambios (Ctrl+S)"
         >
           {isSaving ? (
@@ -1377,7 +1601,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
           ) : (
             <>
               <Save className="w-4 h-4 text-black" />
-              <span>Guardar Cambios</span>
+              <span>{hasUnsavedChanges ? 'Guardar Cambios' : 'Configuración Guardada'}</span>
             </>
           )}
         </button>

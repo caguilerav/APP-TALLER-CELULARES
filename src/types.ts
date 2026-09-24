@@ -212,6 +212,7 @@ export interface WorkshopSettings {
   ticketFooterMessage: string;
   defaultWarrantyDays: number;
   taxPercentage: number;
+  customLogo?: string; // Base64 data URI or image URL uploaded by the user
 
   // Recepción & Órdenes
   otPrefix: string;

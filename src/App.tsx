@@ -69,8 +69,26 @@ export default function App() {
       const updated = mockDb.getSettings();
       setWorkshopSettings(updated);
       setRefreshTrigger(prev => prev + 1);
+
+      if (updated.customLogo) {
+        const fav = document.querySelector('link[rel="icon"]');
+        if (fav) fav.setAttribute('href', updated.customLogo);
+        const appleFav = document.querySelector('link[rel="apple-touch-icon"]');
+        if (appleFav) appleFav.setAttribute('href', updated.customLogo);
+      }
     };
+
+    // Apply custom logo to favicon if present
+    const initialSettings = mockDb.getSettings();
+    if (initialSettings.customLogo) {
+      const fav = document.querySelector('link[rel="icon"]');
+      if (fav) fav.setAttribute('href', initialSettings.customLogo);
+      const appleFav = document.querySelector('link[rel="apple-touch-icon"]');
+      if (appleFav) appleFav.setAttribute('href', initialSettings.customLogo);
+    }
+
     window.addEventListener('workshop_settings_saved', handleSettingsUpdated);
+    window.addEventListener('custom_logo_updated', handleSettingsUpdated);
     window.addEventListener('storage', handleSettingsUpdated);
 
     // Check if user session exists in localStorage
