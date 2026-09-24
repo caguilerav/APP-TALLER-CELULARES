@@ -36,6 +36,7 @@ import GlobalSearchView from './components/GlobalSearchView';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import BolFixLogo from './components/BolFixLogo';
 import { mockDb } from './db/mockDb';
+import { updateAppIcon, resetAppIcon } from './utils/appIconHelper';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -64,31 +65,32 @@ export default function App() {
       console.warn('Error setting initial zoom:', e);
     }
 
+    // Helper to refresh app icon in browser tab, apple touch, and PWA manifest
+    const syncAppIcon = (settings: WorkshopSettings) => {
+      const activeIcon = settings.customAppIcon || settings.customLogo;
+      if (activeIcon) {
+        updateAppIcon(activeIcon, settings.workshopName);
+      } else {
+        resetAppIcon();
+      }
+    };
+
     // Listen for real-time workshop settings updates across the entire app
     const handleSettingsUpdated = () => {
       const updated = mockDb.getSettings();
       setWorkshopSettings(updated);
       setRefreshTrigger(prev => prev + 1);
-
-      if (updated.customLogo) {
-        const fav = document.querySelector('link[rel="icon"]');
-        if (fav) fav.setAttribute('href', updated.customLogo);
-        const appleFav = document.querySelector('link[rel="apple-touch-icon"]');
-        if (appleFav) appleFav.setAttribute('href', updated.customLogo);
-      }
+      syncAppIcon(updated);
     };
 
-    // Apply custom logo to favicon if present
+    // Apply custom logo & app icon on mount
     const initialSettings = mockDb.getSettings();
-    if (initialSettings.customLogo) {
-      const fav = document.querySelector('link[rel="icon"]');
-      if (fav) fav.setAttribute('href', initialSettings.customLogo);
-      const appleFav = document.querySelector('link[rel="apple-touch-icon"]');
-      if (appleFav) appleFav.setAttribute('href', initialSettings.customLogo);
-    }
+    syncAppIcon(initialSettings);
 
     window.addEventListener('workshop_settings_saved', handleSettingsUpdated);
     window.addEventListener('custom_logo_updated', handleSettingsUpdated);
+    window.addEventListener('app_icon_updated', handleSettingsUpdated);
+    window.addEventListener('app_icon_changed', handleSettingsUpdated);
     window.addEventListener('storage', handleSettingsUpdated);
 
     // Check if user session exists in localStorage
@@ -103,6 +105,9 @@ export default function App() {
 
     return () => {
       window.removeEventListener('workshop_settings_saved', handleSettingsUpdated);
+      window.removeEventListener('custom_logo_updated', handleSettingsUpdated);
+      window.removeEventListener('app_icon_updated', handleSettingsUpdated);
+      window.removeEventListener('app_icon_changed', handleSettingsUpdated);
       window.removeEventListener('storage', handleSettingsUpdated);
     };
   }, []);
@@ -159,7 +164,11 @@ export default function App() {
         <div className="space-y-8">
           {/* Sidebar Brand Logo */}
           <div className="flex items-center space-x-3 px-1">
-            <BolFixLogo variant="icon" className="w-10 h-10 shadow-lg rounded-xl shrink-0" />
+            <BolFixLogo 
+              variant="icon" 
+              customLogo={workshopSettings.customAppIcon || workshopSettings.customLogo}
+              className="w-10 h-10 shadow-lg rounded-xl shrink-0" 
+            />
             <div className="min-w-0 flex-1">
               <h1 className="text-sm font-black tracking-tight text-white uppercase truncate">
                 {workshopSettings.workshopName || 'BOL.FIX'}
@@ -328,7 +337,11 @@ export default function App() {
         {/* MOBILE HEADER (Sticky top logo/user action bar) */}
         <header className="md:hidden bg-[#111111] text-white py-3 px-4 flex items-center justify-between shadow-md select-none sticky top-0 z-40">
           <div className="flex items-center space-x-2.5 min-w-0" onClick={() => setIsSearchOpen(true)}>
-            <BolFixLogo variant="icon" className="w-8 h-8 rounded-lg shadow shrink-0 cursor-pointer" />
+            <BolFixLogo 
+              variant="icon" 
+              customLogo={workshopSettings.customAppIcon || workshopSettings.customLogo}
+              className="w-8 h-8 rounded-lg shadow shrink-0 cursor-pointer" 
+            />
             <div className="min-w-0">
               <span className="font-extrabold text-sm uppercase tracking-wide truncate max-w-[170px] block leading-tight">
                 {workshopSettings.workshopName || 'BOL.FIX'}
@@ -549,7 +562,11 @@ export default function App() {
             <div className="flex-1 overflow-y-auto space-y-4 font-mono text-xs pr-1">
               <div className="text-center space-y-1">
                 <div className="flex justify-center mb-1">
-                  <BolFixLogo variant="icon" className="w-9 h-9 rounded-xl" />
+                  <BolFixLogo 
+                    variant="icon" 
+                    customLogo={workshopSettings.customAppIcon || workshopSettings.customLogo}
+                    className="w-9 h-9 rounded-xl" 
+                  />
                 </div>
                 <h3 className="text-base font-black tracking-tight text-center uppercase">
                   {workshopSettings.workshopName || 'BOL.FIX'}

@@ -213,6 +213,7 @@ export interface WorkshopSettings {
   defaultWarrantyDays: number;
   taxPercentage: number;
   customLogo?: string; // Base64 data URI or image URL uploaded by the user
+  customAppIcon?: string; // Base64 data URI or icon URL for app icon & favicon
 
   // Recepción & Órdenes
   otPrefix: string;

@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: WorkshopSettings = {
   defaultWarrantyDays: 30,
   taxPercentage: 0,
   customLogo: '',
+  customAppIcon: '',
 
   otPrefix: 'OT-',
   requireTechnicianAssigned: false,

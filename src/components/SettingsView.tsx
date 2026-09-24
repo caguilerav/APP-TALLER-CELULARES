@@ -23,11 +23,14 @@ import {
   UserCheck,
   UserX,
   HelpCircle,
-  Sliders
+  Sliders,
+  Globe,
+  Sparkles
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
 import { User, UserRole, WorkshopSettings } from '../types';
 import ZoomKnobControl from './ZoomKnobControl';
+import { updateAppIcon, resetAppIcon } from '../utils/appIconHelper';
 
 interface SettingsViewProps {
   currentUser: User;
@@ -77,7 +80,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
   // Backup restore
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
-  // Custom Logo Upload
+  // Custom Logo & App Icon Upload
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
@@ -106,17 +109,18 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
       }
 
       if (file.type.includes('svg')) {
-        saveNewLogo(result);
+        saveNewLogoAndIcon(result, result);
         return;
       }
 
-      // Resize/compress to fit cleanly in storage while maintaining high sharpness (max 600x600 px)
+      // Generate optimized versions for Logo and for App Icon (square)
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
         const MAX_SIZE = 600;
         let { width, height } = img;
 
+        // 1. Scaled canvas for logo
+        const canvas = document.createElement('canvas');
         if (width > height) {
           if (width > MAX_SIZE) {
             height = Math.round((height * MAX_SIZE) / width);
@@ -128,20 +132,44 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
             height = MAX_SIZE;
           }
         }
-
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+        let compressedLogo = result;
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.92);
-          saveNewLogo(compressedDataUrl);
-        } else {
-          saveNewLogo(result);
+          compressedLogo = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.92);
         }
+
+        // 2. Square canvas (512x512) for App Icon & Favicon
+        const iconCanvas = document.createElement('canvas');
+        iconCanvas.width = 512;
+        iconCanvas.height = 512;
+        const iconCtx = iconCanvas.getContext('2d');
+        let squareAppIcon = compressedLogo;
+        if (iconCtx) {
+          const aspect = img.width / img.height;
+          if (aspect >= 0.92 && aspect <= 1.08) {
+            iconCtx.drawImage(img, 0, 0, 512, 512);
+          } else {
+            // Draw centered on solid dark background matching app theme
+            iconCtx.fillStyle = '#111111';
+            iconCtx.fillRect(0, 0, 512, 512);
+            const scale = Math.min(480 / img.width, 480 / img.height);
+            const sw = img.width * scale;
+            const sh = img.height * scale;
+            const sx = (512 - sw) / 2;
+            const sy = (512 - sh) / 2;
+            iconCtx.drawImage(img, sx, sy, sw, sh);
+          }
+          squareAppIcon = iconCanvas.toDataURL('image/png');
+        }
+
+        saveNewLogoAndIcon(compressedLogo, squareAppIcon);
       };
+
       img.onerror = () => {
-        saveNewLogo(result);
+        saveNewLogoAndIcon(result, result);
       };
       img.src = result;
     };
@@ -154,18 +182,22 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     reader.readAsDataURL(file);
   };
 
-  const saveNewLogo = (logoDataUrl: string) => {
-    setSettings(prev => ({ ...prev, customLogo: logoDataUrl }));
+  const saveNewLogoAndIcon = (logoDataUrl: string, appIconDataUrl: string) => {
+    setSettings(prev => ({ 
+      ...prev, 
+      customLogo: logoDataUrl,
+      customAppIcon: appIconDataUrl 
+    }));
     setIsUploadingLogo(false);
     if (logoInputRef.current) {
       logoInputRef.current.value = '';
     }
-    showSuccess('Foto cargada en vista previa. Haz clic en "Guardar Cambios" para aplicarla en la app.');
+    showSuccess('Foto cargada para Logotipo e Ícono de la app. Haz clic en "Guardar Cambios" para aplicarla en toda la app.');
   };
 
   const handleRemoveCustomLogo = () => {
-    setSettings(prev => ({ ...prev, customLogo: '' }));
-    showSuccess('Foto removida en vista previa. Haz clic en "Guardar Cambios" para confirmar.');
+    setSettings(prev => ({ ...prev, customLogo: '', customAppIcon: '' }));
+    showSuccess('Logotipo e Ícono restablecidos al oficial en vista previa. Haz clic en "Guardar Cambios" para confirmar.');
   };
 
   useEffect(() => {
@@ -200,21 +232,18 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
         document.title = `${settings.workshopName} - Gestión de Servicio Técnico`;
       }
 
-      // 5. Update favicon and touch icon if customLogo changed or restored
-      if (settings.customLogo) {
-        const fav = document.querySelector('link[rel="icon"]');
-        if (fav) fav.setAttribute('href', settings.customLogo);
-        const appleFav = document.querySelector('link[rel="apple-touch-icon"]');
-        if (appleFav) appleFav.setAttribute('href', settings.customLogo);
+      // 5. Update browser favicon, apple-touch-icon, and PWA manifest dynamically
+      const activeIcon = settings.customAppIcon || settings.customLogo;
+      if (activeIcon) {
+        updateAppIcon(activeIcon, settings.workshopName);
       } else {
-        const fav = document.querySelector('link[rel="icon"]');
-        if (fav) fav.setAttribute('href', '/favicon.svg');
-        const appleFav = document.querySelector('link[rel="apple-touch-icon"]');
-        if (appleFav) appleFav.setAttribute('href', '/pwa-icon.svg');
+        resetAppIcon();
       }
 
       // 6. Dispatch global events for instant app-wide synchronization
       window.dispatchEvent(new CustomEvent('custom_logo_updated', { detail: settings.customLogo || '' }));
+      window.dispatchEvent(new CustomEvent('app_icon_updated', { detail: activeIcon || '' }));
+      window.dispatchEvent(new CustomEvent('app_icon_changed', { detail: activeIcon || '' }));
       window.dispatchEvent(new CustomEvent('workshop_settings_saved', { detail: settings }));
       window.dispatchEvent(new Event('storage'));
 
@@ -222,7 +251,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
         onSettingsSaved(settings);
       }
 
-      showSuccess('¡Configuración guardada y aplicada a toda la aplicación con éxito!');
+      showSuccess('¡Configuración, Logotipo e Ícono de la app guardados y aplicados con éxito!');
     } catch (e) {
       console.error('Error saving settings:', e);
       showError('Hubo un error al guardar la configuración');
@@ -708,52 +737,110 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                   />
                 </div>
 
-                {/* LOGO DE LA EMPRESA & APP CON SUBIDA DE FOTO */}
-                <div className="pt-3 border-t border-gray-150 space-y-3">
+                {/* LOGO DE LA EMPRESA & ÍCONO DE LA APP */}
+                <div className="pt-3 border-t border-gray-150 space-y-3.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <label className="block text-xs font-black text-gray-900 uppercase tracking-wide">
-                        Foto / Logotipo de la App
-                      </label>
-                      <p className="text-[11px] text-gray-500">
-                        Personaliza el logo visible en la barra lateral, recibos, acceso y favicon
+                      <div className="flex items-center space-x-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#00E63C]" />
+                        <label className="block text-xs font-black text-gray-900 uppercase tracking-wide">
+                          Foto de Logotipo e Ícono de la App
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        Al subir una foto se cambiará automáticamente el <strong className="text-gray-700">Logotipo</strong> y el <strong className="text-gray-700">Ícono de la aplicación</strong> (pestaña del navegador, acceso directo de celular/PC, pantalla de inicio e interfaz).
                       </p>
                     </div>
                     {settings.customLogo ? (
-                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200 shadow-2xs">
-                        <Check className="w-3 h-3 text-emerald-600" /> Foto personalizada activa
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200 shadow-2xs shrink-0">
+                        <Check className="w-3 h-3 text-emerald-600" /> Foto activa (Logo + Ícono)
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full border border-gray-200">
+                      <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full border border-gray-200 shrink-0">
                         Predeterminado BOL.FIX
                       </span>
                     )}
                   </div>
 
-                  {/* Logo Preview & Upload Controls */}
-                  <div className="flex flex-col sm:flex-row items-center gap-4 p-3.5 bg-gray-50/80 rounded-2xl border border-gray-200">
-                    {/* Visual Box */}
-                    <div className="w-20 h-20 bg-black rounded-2xl p-1.5 flex items-center justify-center shadow-md border-2 border-gray-300 relative group shrink-0 overflow-hidden">
-                      {settings.customLogo ? (
-                        <img 
-                          src={settings.customLogo} 
-                          alt="Logo del Taller" 
-                          className="w-full h-full object-contain rounded-xl"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <img 
-                          src="/pwa-icon.svg" 
-                          alt="Logo BOL.FIX" 
-                          className="w-full h-full object-contain rounded-xl"
-                          referrerPolicy="no-referrer" 
-                        />
-                      )}
+                  {/* Unsaved Preview Warning Pill */}
+                  {settings.customLogo !== originalSettings.customLogo && (
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-medium flex items-center gap-2 animate-fadeIn">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Has cargado una nueva foto para el logotipo e ícono. Haz clic en <strong>"Guardar Cambios"</strong> abajo para aplicarla en toda la app.</span>
+                    </div>
+                  )}
+
+                  {/* Dual Previews: Logo and App Icon */}
+                  <div className="p-3.5 bg-gray-50/90 rounded-2xl border border-gray-200 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* 1. Preview Logotipo General */}
+                      <div className="p-3 bg-white rounded-xl border border-gray-200 flex items-center space-x-3 shadow-2xs">
+                        <div className="w-16 h-16 bg-black rounded-xl p-1.5 flex items-center justify-center shrink-0 border border-gray-200 overflow-hidden shadow-xs">
+                          {settings.customLogo ? (
+                            <img 
+                              src={settings.customLogo} 
+                              alt="Logotipo del Taller" 
+                              className="w-full h-full object-contain rounded-lg"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <img 
+                              src="/pwa-icon.svg" 
+                              alt="Logo BOL.FIX" 
+                              className="w-full h-full object-contain rounded-lg"
+                              referrerPolicy="no-referrer" 
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-black text-gray-900 uppercase block tracking-wider">
+                            Logotipo Principal
+                          </span>
+                          <span className="text-[10px] text-gray-500 block leading-tight">
+                            Barra lateral, pantalla de acceso, tickets de venta y recibos de reparación.
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 2. Preview Ícono de la App */}
+                      <div className="p-3 bg-white rounded-xl border border-gray-200 flex items-center space-x-3 shadow-2xs">
+                        <div className="w-16 h-16 bg-gradient-to-b from-[#222222] to-[#0A0A0A] rounded-2xl p-1.5 flex items-center justify-center shrink-0 border-2 border-white/20 shadow-md relative group overflow-hidden">
+                          {settings.customAppIcon || settings.customLogo ? (
+                            <img 
+                              src={settings.customAppIcon || settings.customLogo} 
+                              alt="Ícono de la App" 
+                              className="w-full h-full object-contain rounded-xl drop-shadow-md"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <img 
+                              src="/pwa-icon.svg" 
+                              alt="Ícono BOL.FIX" 
+                              className="w-full h-full object-contain rounded-xl drop-shadow-md"
+                              referrerPolicy="no-referrer" 
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none rounded-2xl" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-black text-gray-900 uppercase block tracking-wider">
+                              Ícono de la App
+                            </span>
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                              PWA & Web
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-gray-500 block leading-tight">
+                            Pestaña del navegador (favicon), ícono de instalación en celular/PC y encabezado móvil.
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Action buttons and information */}
-                    <div className="flex-1 space-y-2 text-center sm:text-left w-full">
-                      <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                    <div className="pt-2 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                      <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                         {/* Hidden file input */}
                         <input
                           type="file"
@@ -767,22 +854,22 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                           type="button"
                           onClick={() => logoInputRef.current?.click()}
                           disabled={isUploadingLogo}
-                          className="px-3.5 py-2 bg-black hover:bg-gray-800 text-[#00FF40] hover:text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                          className="px-4 py-2.5 bg-black hover:bg-gray-800 text-[#00FF40] hover:text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 disabled:opacity-50 w-full sm:w-auto"
                         >
                           {isUploadingLogo ? (
                             <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#00FF40]" />
                           ) : (
                             <Upload className="w-3.5 h-3.5 text-[#00FF40]" />
                           )}
-                          <span>{isUploadingLogo ? 'Procesando foto...' : 'Subir Foto de Logo'}</span>
+                          <span>{isUploadingLogo ? 'Procesando foto...' : 'Subir Foto de Logo e Ícono'}</span>
                         </button>
 
                         {settings.customLogo && (
                           <button
                             type="button"
                             onClick={handleRemoveCustomLogo}
-                            className="px-3 py-2 bg-white hover:bg-red-50 text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
-                            title="Volver al logo original BOL.FIX"
+                            className="px-3.5 py-2.5 bg-white hover:bg-red-50 text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 w-full sm:w-auto"
+                            title="Volver al logo e ícono oficial BOL.FIX"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             <span>Restaurar Original</span>
@@ -790,8 +877,8 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
                         )}
                       </div>
 
-                      <p className="text-[10px] text-gray-500 leading-tight">
-                        Puedes subir cualquier foto en formato PNG, JPG o WEBP (recomendado 1:1). Se sincronizará inmediatamente como logo del taller e ícono en toda la aplicación.
+                      <p className="text-[10px] text-gray-500 leading-tight text-center sm:text-right">
+                        Soporta PNG, JPG o WEBP. Al subir la foto se ajusta automáticamente para ambos usos.
                       </p>
                     </div>
                   </div>

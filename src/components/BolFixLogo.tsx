@@ -14,9 +14,17 @@ export const BolFixLogo: React.FC<BolFixLogoProps> = ({
   glow = true,
   customLogo: customLogoProp
 }) => {
+  const getActiveLogoFromDb = () => {
+    const settings = mockDb.getSettings();
+    if (!settings) return '';
+    return variant === 'icon' 
+      ? (settings.customAppIcon || settings.customLogo || '') 
+      : (settings.customLogo || '');
+  };
+
   const [activeLogo, setActiveLogo] = useState<string>(() => {
     if (customLogoProp !== undefined) return customLogoProp;
-    return mockDb.getSettings()?.customLogo || '';
+    return getActiveLogoFromDb();
   });
 
   useEffect(() => {
@@ -26,29 +34,34 @@ export const BolFixLogo: React.FC<BolFixLogoProps> = ({
     }
 
     const updateLogo = () => {
-      const current = mockDb.getSettings()?.customLogo || '';
-      setActiveLogo(current);
+      setActiveLogo(getActiveLogoFromDb());
     };
 
     window.addEventListener('workshop_settings_saved', updateLogo);
     window.addEventListener('custom_logo_updated', updateLogo);
+    window.addEventListener('app_icon_updated', updateLogo);
+    window.addEventListener('app_icon_changed', updateLogo);
     window.addEventListener('storage', updateLogo);
 
     return () => {
       window.removeEventListener('workshop_settings_saved', updateLogo);
       window.removeEventListener('custom_logo_updated', updateLogo);
+      window.removeEventListener('app_icon_updated', updateLogo);
+      window.removeEventListener('app_icon_changed', updateLogo);
       window.removeEventListener('storage', updateLogo);
     };
-  }, [customLogoProp]);
+  }, [customLogoProp, variant]);
+
+  const resolvedLogo = customLogoProp !== undefined ? customLogoProp : activeLogo;
 
   // If a custom logo has been uploaded by the user, render it seamlessly
-  if (activeLogo) {
+  if (resolvedLogo) {
     return (
       <div className={`relative inline-flex items-center justify-center shrink-0 overflow-hidden ${className}`}>
         <img
-          src={activeLogo}
+          src={resolvedLogo}
           alt={mockDb.getSettings()?.workshopName || 'Logo de la empresa'}
-          className="w-full h-full object-contain rounded-xl"
+          className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl select-none"
           referrerPolicy="no-referrer"
         />
       </div>
