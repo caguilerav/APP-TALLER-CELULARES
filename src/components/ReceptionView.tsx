@@ -249,11 +249,11 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
   const [workshopSettings, setWorkshopSettings] = useState<WorkshopSettings>(() => mockDb.getSettings());
   const [customAccessoryInput, setCustomAccessoryInput] = useState('');
   const [showAddCustomAccessory, setShowAddCustomAccessory] = useState(false);
-  const [checklist, setChecklist] = useState<string[]>([]);
+  const [customPhysicalStateInput, setCustomPhysicalStateInput] = useState('');
+  const [showAddCustomPhysicalState, setShowAddCustomPhysicalState] = useState(false);
 
   // Lists for quick chips
   const POPULAR_BRANDS = ['Apple', 'Samsung', 'Xiaomi', 'Motorola', 'Huawei', 'Oppo', 'Realme'];
-  const PHYSICAL_STATE_OPTIONS = ['Pantalla rota', 'No enciende', 'Mojado', 'Golpes', 'Tapa rota', 'Teléfono doblado'];
 
   // Dynamic accessories list based on settings, keeping any custom selected accessories
   const accessoryOptions = useMemo(() => {
@@ -268,19 +268,28 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
     return list;
   }, [workshopSettings.defaultAccessoriesList, accessories]);
 
-  // Dynamic checklist points based on settings
-  const checklistOptions = useMemo(() => {
-    return workshopSettings.defaultChecklist && workshopSettings.defaultChecklist.length > 0
-      ? workshopSettings.defaultChecklist
-      : ['Encendido', 'Pantalla / Táctil', 'Cámaras', 'Micrófono / Auricular', 'Carga / Puerto USB', 'Wi-Fi / Bluetooth', 'Lector SIM / Señal', 'Botones Físicos'];
-  }, [workshopSettings.defaultChecklist]);
+  // Dynamic physical states list based on settings, keeping any custom selected states
+  const physicalStateOptions = useMemo(() => {
+    const list = workshopSettings.defaultPhysicalStates && workshopSettings.defaultPhysicalStates.length > 0
+      ? [...workshopSettings.defaultPhysicalStates]
+      : ['Pantalla rota', 'No enciende', 'Mojado', 'Golpes', 'Tapa rota', 'Teléfono doblado', 'Rayones'];
+    physicalState.forEach(st => {
+      if (!list.includes(st)) {
+        list.push(st);
+      }
+    });
+    return list;
+  }, [workshopSettings.defaultPhysicalStates, physicalState]);
 
-  const handleToggleChecklistItem = (item: string) => {
-    if (checklist.includes(item)) {
-      setChecklist(checklist.filter(i => i !== item));
-    } else {
-      setChecklist([...checklist, item]);
+  const handleAddCustomPhysicalState = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const val = customPhysicalStateInput.trim();
+    if (!val) return;
+    if (!physicalState.includes(val)) {
+      setPhysicalState([...physicalState, val]);
     }
+    setCustomPhysicalStateInput('');
+    setShowAddCustomPhysicalState(false);
   };
 
   const handleAddCustomAccessory = (e?: React.FormEvent) => {
@@ -554,7 +563,6 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
         quickDiagnosis: quickDiagnosis || undefined,
         accessories,
         physicalState,
-        checklist: checklist.length > 0 ? checklist : undefined,
         images: images.length > 0 ? images : undefined,
         estimatedCost: costNum,
         advancePayment: advanceNum,
@@ -609,9 +617,10 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
     setQuickDiagnosis('');
     setAccessories([]);
     setPhysicalState([]);
-    setChecklist([]);
     setCustomAccessoryInput('');
     setShowAddCustomAccessory(false);
+    setCustomPhysicalStateInput('');
+    setShowAddCustomPhysicalState(false);
     setImages([]);
     setEstimatedCost('');
     setAdvancePayment('');
@@ -1315,9 +1324,48 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
           {/* Physical States Selection */}
           <div className="space-y-2 pt-2">
-            <span className="text-xs font-bold text-gray-600 block uppercase tracking-wide">Detalles de Estado Estético</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-600 block uppercase tracking-wide">Detalles de Estado Estético</span>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomPhysicalState(!showAddCustomPhysicalState)}
+                className="text-[11px] font-bold text-black hover:text-[#D4A000] flex items-center space-x-1 cursor-pointer transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ Otro estado</span>
+              </button>
+            </div>
+
+            {showAddCustomPhysicalState && (
+              <div className="flex items-center space-x-2 bg-yellow-50/70 p-2 rounded-xl border border-yellow-200">
+                <input
+                  type="text"
+                  placeholder="Escriba otro detalle de estado estético..."
+                  value={customPhysicalStateInput}
+                  onChange={(e) => setCustomPhysicalStateInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomPhysicalState())}
+                  className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-black"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomPhysicalState}
+                  className="bg-black text-[#FACC15] px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-800 transition-colors cursor-pointer"
+                >
+                  Agregar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomPhysicalState(false)}
+                  className="text-gray-400 hover:text-gray-600 px-2 py-1.5 text-xs cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-              {PHYSICAL_STATE_OPTIONS.map((state) => {
+              {physicalStateOptions.map((state) => {
                 const selected = physicalState.includes(state);
                 return (
                   <button
@@ -1340,39 +1388,6 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
               })}
             </div>
           </div>
-
-          {/* Checklist Points Initial Check */}
-          {checklistOptions.length > 0 && (
-            <div className="space-y-2 pt-3 border-t border-gray-100">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-600 block uppercase tracking-wide">Puntos de Control / Chequeo Inicial (Checklist)</span>
-                <span className="text-[10px] font-bold text-gray-400 font-mono">{checklist.length}/{checklistOptions.length} verificados</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {checklistOptions.map((item) => {
-                  const selected = checklist.includes(item);
-                  return (
-                    <button
-                      id={`chk-${item.toLowerCase().replace(/[\s\/\(\)]+/g, '-')}`}
-                      type="button"
-                      key={item}
-                      onClick={() => handleToggleChecklistItem(item)}
-                      className={`p-2.5 rounded-xl border text-xs font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
-                        selected 
-                          ? 'bg-black text-[#FACC15] border-black shadow-sm' 
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${selected ? 'bg-[#FACC15] border-black text-black' : 'border-gray-300 bg-white'}`}>
-                        {selected && <Check className="w-2.5 h-2.5 stroke-[3px]" />}
-                      </div>
-                      <span className="truncate">{item}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Photos Selection Section */}
           <div className="space-y-3 pt-4 border-t border-gray-100">

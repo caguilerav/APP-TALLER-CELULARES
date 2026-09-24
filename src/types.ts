@@ -217,7 +217,8 @@ export interface WorkshopSettings {
   otPrefix: string;
   requireTechnicianAssigned: boolean;
   defaultAccessoriesList: string[];
-  defaultChecklist: string[];
+  defaultPhysicalStates: string[];
+  defaultChecklist?: string[];
 
   // Inventario
   defaultMinStock: number;

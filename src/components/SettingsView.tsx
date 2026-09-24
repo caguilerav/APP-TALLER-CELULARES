@@ -59,7 +59,7 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
 
   // Interactive Lists inputs
   const [newAccessory, setNewAccessory] = useState('');
-  const [newChecklistItem, setNewChecklistItem] = useState('');
+  const [newPhysicalState, setNewPhysicalState] = useState('');
   const [newCategory, setNewCategory] = useState('');
 
   // Toast / Feedback
@@ -173,32 +173,35 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
     onSettingsSaved?.(updated);
   };
 
-  // --- CHECKLIST HANDLERS ---
-  const handleAddChecklist = () => {
-    if (!newChecklistItem.trim()) return;
-    if (settings.defaultChecklist.includes(newChecklistItem.trim())) {
-      showError('El punto de control ya existe');
+  // --- PHYSICAL STATE HANDLERS ---
+  const handleAddPhysicalState = () => {
+    if (!newPhysicalState.trim()) return;
+    const currentList = settings.defaultPhysicalStates || [];
+    if (currentList.includes(newPhysicalState.trim())) {
+      showError('La opción de estado estético ya existe');
       return;
     }
     const updated = {
       ...settings,
-      defaultChecklist: [...settings.defaultChecklist, newChecklistItem.trim()]
+      defaultPhysicalStates: [...currentList, newPhysicalState.trim()]
     };
     setSettings(updated);
     mockDb.saveSettings(updated);
     onSettingsSaved?.(updated);
-    setNewChecklistItem('');
-    showSuccess('Punto de chequeo añadido');
+    setNewPhysicalState('');
+    showSuccess('Opción de estado estético añadida');
   };
 
-  const handleRemoveChecklist = (item: string) => {
+  const handleRemovePhysicalState = (stateItem: string) => {
+    const currentList = settings.defaultPhysicalStates || [];
     const updated = {
       ...settings,
-      defaultChecklist: settings.defaultChecklist.filter(i => i !== item)
+      defaultPhysicalStates: currentList.filter(item => item !== stateItem)
     };
     setSettings(updated);
     mockDb.saveSettings(updated);
     onSettingsSaved?.(updated);
+    showSuccess('Opción eliminada');
   };
 
   // --- CATEGORIES HANDLERS ---
@@ -702,44 +705,45 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
             </div>
           </div>
 
-          {/* CHECKLIST DE RECEPCIÓN */}
+          {/* DETALLES DE ESTADO ESTÉTICO */}
           <div className="bg-white p-6 rounded-3xl border border-gray-150 shadow-xs space-y-4">
-            <h2 className="text-sm font-black text-gray-900 uppercase">Puntos de Control para Chequeo Físico Inicial</h2>
-            <p className="text-xs text-gray-500">Puntos de inspección que la recepcionista o el técnico debe revisar al ingresar el equipo.</p>
+            <h2 className="text-sm font-black text-gray-900 uppercase">Detalles de Estado Estético</h2>
+            <p className="text-xs text-gray-500">Opciones rápidas de condiciones físicas que el personal puede marcar al recepcionar un dispositivo (ej. Pantalla rota, Rayones, Golpes, etc.).</p>
 
             <div className="flex gap-2">
               <input
                 type="text"
-                value={newChecklistItem}
-                onChange={(e) => setNewChecklistItem(e.target.value)}
-                placeholder="Ej: Reconocimiento Facial (Face ID), Carga Inalámbrica..."
+                value={newPhysicalState}
+                onChange={(e) => setNewPhysicalState(e.target.value)}
+                placeholder="Ej: Rayones en pantalla, Lente de cámara roto, Sin tornillos..."
                 className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:bg-white focus:border-black outline-none"
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddChecklist())}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPhysicalState())}
               />
               <button
                 type="button"
-                onClick={handleAddChecklist}
+                onClick={handleAddPhysicalState}
                 className="bg-black text-[#FACC15] px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-800 transition-all cursor-pointer flex items-center space-x-1"
               >
                 <Plus className="w-4 h-4" />
-                <span>Agregar Punto</span>
+                <span>Agregar</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-2">
-              {settings.defaultChecklist.map((item) => (
-                <div
-                  key={item}
-                  className="bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-xs font-bold text-gray-800 flex items-center justify-between"
+            <div className="flex flex-wrap gap-2 pt-2">
+              {(settings.defaultPhysicalStates || []).map((stateItem) => (
+                <span
+                  key={stateItem}
+                  className="bg-gray-100 border border-gray-200 text-gray-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-2"
                 >
-                  <span className="truncate">{item}</span>
+                  <span>{stateItem}</span>
                   <button
-                    onClick={() => handleRemoveChecklist(item)}
-                    className="text-gray-400 hover:text-red-600 transition-colors p-1 cursor-pointer"
+                    type="button"
+                    onClick={() => handleRemovePhysicalState(stateItem)}
+                    className="text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
-                </div>
+                </span>
               ))}
             </div>
           </div>

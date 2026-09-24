@@ -1228,12 +1228,6 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
                   <span className="text-gray-400 block text-[9px] uppercase font-bold">Estado físico</span>
                   <span className="font-medium text-gray-800">{order.physicalState.join(', ') || 'Normal'}</span>
                 </div>
-                {order.checklist && order.checklist.length > 0 && (
-                  <div className="col-span-2 pt-1 border-t border-gray-100">
-                    <span className="text-gray-400 block text-[9px] uppercase font-bold">Chequeo Inicial Verificado</span>
-                    <span className="font-medium text-gray-800">{order.checklist.join(' • ')}</span>
-                  </div>
-                )}
               </div>
 
               {/* Device Photos Showcase */}

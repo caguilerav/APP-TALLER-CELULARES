@@ -48,6 +48,18 @@ const DEFAULT_SETTINGS: WorkshopSettings = {
   otPrefix: 'OT-',
   requireTechnicianAssigned: false,
   defaultAccessoriesList: ['SIM', 'Memoria SD', 'Cargador', 'Caja', 'Funda / Cover', 'S Pen / Stylus'],
+  defaultPhysicalStates: [
+    'Pantalla rota',
+    'No enciende',
+    'Mojado',
+    'Golpes',
+    'Tapa rota',
+    'Teléfono doblado',
+    'Rayones',
+    'Lente cámara roto',
+    'Botones dañados',
+    'Sin tornillos'
+  ],
   defaultChecklist: ['Encendido', 'Pantalla / Táctil', 'Cámaras', 'Micrófono / Auricular', 'Carga / Puerto USB', 'Wi-Fi / Bluetooth', 'Lector SIM / Señal', 'Botones Físicos'],
 
   defaultMinStock: 3,
@@ -1153,6 +1165,9 @@ export const mockDb = {
       ) {
         parsed.workshopName = 'BOL.FIX';
         localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, ...parsed }));
+      }
+      if (!parsed.defaultPhysicalStates || !Array.isArray(parsed.defaultPhysicalStates) || parsed.defaultPhysicalStates.length === 0) {
+        parsed.defaultPhysicalStates = DEFAULT_SETTINGS.defaultPhysicalStates;
       }
       return { ...DEFAULT_SETTINGS, ...parsed };
     } catch (e) {
