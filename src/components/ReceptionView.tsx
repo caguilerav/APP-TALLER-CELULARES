@@ -565,6 +565,7 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
         physicalState,
         images: images.length > 0 ? images : undefined,
         estimatedCost: costNum,
+        laborCost: costNum,
         advancePayment: advanceNum,
         status: 'RECIBIDO' as OrderStatus,
         assignedTechnicianId: assignedTechId || undefined,

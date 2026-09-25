@@ -250,7 +250,7 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
       setEditLockValue(found.lockValue || '');
       setEditProblem(found.problem);
       setEditQuickDiagnosis(found.quickDiagnosis || '');
-      setEditEstimatedCost(String(found.estimatedCost));
+      setEditEstimatedCost(String(found.laborCost !== undefined ? found.laborCost : found.estimatedCost));
       setEditObservaciones(found.observaciones || '');
       setEditImages(found.images || []);
       setEditIsLaborOnly(found.isLaborOnly || false);
@@ -407,6 +407,7 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
       problem: editProblem,
       quickDiagnosis: editQuickDiagnosis || undefined,
       estimatedCost: costNum,
+      laborCost: costNum,
       observaciones: editObservaciones || undefined,
       images: editImages.length > 0 ? editImages : undefined,
       isLaborOnly: editIsLaborOnly,

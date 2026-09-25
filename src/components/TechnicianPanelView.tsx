@@ -242,11 +242,8 @@ export default function TechnicianPanelView({
 
   // Commission calculation helper
   const calculateCommission = (order: Order, rate: number): number => {
-    if (order.commissionAmount !== undefined && order.commissionAmount > 0) {
-      return order.commissionAmount;
-    }
     const appliedRate = order.commissionPercentage !== undefined ? order.commissionPercentage : rate;
-    const baseAmount = order.estimatedCost || 0;
+    const baseAmount = order.laborCost !== undefined ? order.laborCost : (order.estimatedCost || 0);
     return Math.round((baseAmount * (appliedRate / 100)) * 100) / 100;
   };
 
@@ -277,8 +274,8 @@ export default function TechnicianPanelView({
 
     financialOrders.forEach(order => {
       const comm = calculateCommission(order, customCommissionRate);
-      const cost = order.estimatedCost || 0;
-      totalBilled += cost;
+      const labor = order.laborCost !== undefined ? order.laborCost : (order.estimatedCost || 0);
+      totalBilled += labor;
 
       if (order.status === 'ENTREGADO') {
         totalCommissionEarned += comm;
@@ -663,154 +660,46 @@ export default function TechnicianPanelView({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredActiveOrders.map(order => {
-                const badge = getStatusBadge(order.status);
-                const estimatedComm = calculateCommission(order, customCommissionRate);
-
-                return (
-                  <div
-                    key={order.id}
-                    className="bg-white rounded-2xl border border-gray-200 shadow-2xs hover:shadow-md transition-all p-4.5 flex flex-col justify-between space-y-3.5 relative group"
-                  >
-                    {/* Top Row: OT & Badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span className="px-2.5 py-1 bg-black text-[#00FF40] rounded-lg font-mono font-black text-xs tracking-wider">
-                          {order.otNumber}
-                        </span>
-                        <span className="text-[11px] font-bold text-gray-500 flex items-center gap-1 font-mono">
-                          <Clock className="w-3 h-3 text-gray-400" />
-                          {formatDate(order.createdAt)}
-                        </span>
-                      </div>
-
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg}`}>
-                        {badge.label}
-                      </span>
-                    </div>
-
-                    {/* Device & Client info */}
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <Smartphone className="w-4 h-4 text-gray-700 shrink-0" />
-                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight truncate">
+            <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 text-[10px] uppercase font-black text-gray-500 border-b border-gray-100 tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">OT</th>
+                    <th className="py-3 px-4">Cliente</th>
+                    <th className="py-3 px-4">Dispositivo</th>
+                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4 text-center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredActiveOrders.map(order => {
+                    const badge = getStatusBadge(order.status);
+                    return (
+                      <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-3 px-4 font-mono font-black text-gray-900">{order.otNumber}</td>
+                        <td className="py-3 px-4 font-medium text-gray-900">{order.clientName}</td>
+                        <td className="py-3 px-4 text-gray-600">
                           {order.brand} {order.model}
-                        </h4>
-                        {order.color && (
-                          <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.2 rounded font-medium">
-                            {order.color}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg} ${badge.text}`}>
+                            {badge.label}
                           </span>
-                        )}
-                      </div>
-
-                      <p className="text-xs text-gray-600 pl-6 flex items-center justify-between">
-                        <span>Cliente: <strong className="text-gray-900">{order.clientName}</strong></span>
-                        {order.clientPhone && (
-                          <a
-                            href={`https://wa.me/${order.clientPhone.replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#00E63C] hover:text-emerald-700 font-bold flex items-center gap-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Phone className="w-3 h-3" />
-                            <span>{order.clientPhone}</span>
-                          </a>
-                        )}
-                      </p>
-                    </div>
-
-                    {/* Problem summary */}
-                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-150 text-xs">
-                      <span className="text-[10px] font-black uppercase text-gray-400 block tracking-wide">
-                        Falla Reportada:
-                      </span>
-                      <p className="text-gray-800 line-clamp-2 mt-0.5 font-medium leading-relaxed">
-                        {order.problem}
-                      </p>
-                      {order.observaciones && (
-                        <p className="text-[11px] text-gray-500 italic mt-1 border-t border-gray-200/60 pt-1 line-clamp-1">
-                          Nota: {order.observaciones}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Financial Pills (Cost & Estimated Commission) */}
-                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100">
-                      <div className="bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-150">
-                        <span className="text-[9px] text-gray-400 block font-bold uppercase">Presupuesto</span>
-                        <span className="text-xs font-black text-gray-900 font-mono">
-                          {settings.currencySymbol || 'Bs.'} {order.estimatedCost?.toLocaleString() || '0'}
-                        </span>
-                      </div>
-                      <div className="bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200">
-                        <span className="text-[9px] text-emerald-700 block font-bold uppercase">
-                          Tu Comisión ({customCommissionRate}%)
-                        </span>
-                        <span className="text-xs font-black text-emerald-800 font-mono">
-                          +{settings.currencySymbol || 'Bs.'} {estimatedComm.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Quick State Transition Actions & Details Button */}
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <div className="flex items-center space-x-1.5 flex-wrap">
-                        {order.status !== 'DIAGNOSTICO' && order.status !== 'REPARANDO' && order.status !== 'LISTO' && (
+                        </td>
+                        <td className="py-3 px-4 text-center">
                           <button
                             type="button"
-                            onClick={() => handleQuickStatusChange(order.id, 'DIAGNOSTICO')}
-                            className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg border border-purple-200 transition-all cursor-pointer"
+                            onClick={() => onSelectOrder(order.id)}
+                            className="text-[11px] font-black text-black bg-gray-100 hover:bg-[#FACC15] px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                           >
-                            Diagnóstico
+                            Ver detalle
                           </button>
-                        )}
-
-                        {order.status !== 'REPARANDO' && order.status !== 'LISTO' && (
-                          <button
-                            type="button"
-                            onClick={() => handleQuickStatusChange(order.id, 'REPARANDO')}
-                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold rounded-lg border border-amber-200 transition-all cursor-pointer"
-                          >
-                            Reparar
-                          </button>
-                        )}
-
-                        {order.status !== 'ESPERANDO_REPUESTO' && order.status !== 'LISTO' && (
-                          <button
-                            type="button"
-                            onClick={() => handleQuickStatusChange(order.id, 'ESPERANDO_REPUESTO')}
-                            className="px-2.5 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 text-[10px] font-bold rounded-lg border border-orange-200 transition-all cursor-pointer"
-                          >
-                            Esp. Repuesto
-                          </button>
-                        )}
-
-                        {order.status !== 'LISTO' && (
-                          <button
-                            type="button"
-                            onClick={() => handleQuickStatusChange(order.id, 'LISTO')}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-                          >
-                            <Check className="w-3 h-3" />
-                            Listo
-                          </button>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => onSelectOrder(order.id)}
-                        className="px-3 py-1.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ml-auto shrink-0 shadow-xs"
-                      >
-                        <span>Abrir OT</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -1030,9 +919,9 @@ export default function TechnicianPanelView({
                       <th className="py-3 px-4">Fecha</th>
                       <th className="py-3 px-4">N° OT</th>
                       <th className="py-3 px-4">Cliente</th>
-                      <th className="py-3 px-4">Dispositivo</th>
+                       <th className="py-3 px-4">Dispositivo</th>
                       <th className="py-3 px-4">Falla / Trabajo</th>
-                      <th className="py-3 px-4 text-right">Cobrado</th>
+                      <th className="py-3 px-4 text-right">Mano de Obra</th>
                       <th className="py-3 px-4 text-center">% Com.</th>
                       <th className="py-3 px-4 text-right font-black text-emerald-800">Comisión</th>
                       <th className="py-3 px-4 text-center">Estado</th>
@@ -1043,6 +932,7 @@ export default function TechnicianPanelView({
                     {financialOrders.map(order => {
                       const comm = calculateCommission(order, customCommissionRate);
                       const badge = getStatusBadge(order.status);
+                      const labor = order.laborCost !== undefined ? order.laborCost : (order.estimatedCost || 0);
 
                       return (
                         <tr key={order.id} className="hover:bg-gray-50/80 transition-colors">
@@ -1062,7 +952,10 @@ export default function TechnicianPanelView({
                             {order.problem}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-gray-900 whitespace-nowrap">
-                            {settings.currencySymbol || 'Bs.'} {order.estimatedCost?.toLocaleString()}
+                            <span className="block">{settings.currencySymbol || 'Bs.'} {labor.toLocaleString()}</span>
+                            {order.laborCost !== undefined && order.laborCost !== order.estimatedCost && (
+                              <span className="text-[10px] text-gray-400 font-normal block font-sans">Total: {settings.currencySymbol || 'Bs.'} {order.estimatedCost?.toLocaleString()}</span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-center font-mono text-gray-600">
                             {order.commissionPercentage !== undefined ? order.commissionPercentage : customCommissionRate}%
@@ -1328,7 +1221,7 @@ export default function TechnicianPanelView({
                       <th className="py-2 px-3">Fecha</th>
                       <th className="py-2 px-3">N° OT</th>
                       <th className="py-2 px-3">Equipo / Trabajo</th>
-                      <th className="py-2 px-3 text-right">Facturado</th>
+                      <th className="py-2 px-3 text-right">Mano de Obra</th>
                       <th className="py-2 px-3 text-right font-black text-emerald-800">Comisión</th>
                     </tr>
                   </thead>
@@ -1345,7 +1238,7 @@ export default function TechnicianPanelView({
                             {order.brand} {order.model} ({order.problem})
                           </td>
                           <td className="py-1.5 px-3 text-right font-mono">
-                            {settings.currencySymbol || 'Bs.'} {order.estimatedCost?.toLocaleString()}
+                            {settings.currencySymbol || 'Bs.'} {(order.laborCost !== undefined ? order.laborCost : order.estimatedCost)?.toLocaleString()}
                           </td>
                           <td className="py-1.5 px-3 text-right font-mono font-black text-emerald-700">
                             {settings.currencySymbol || 'Bs.'} {comm.toLocaleString()}
