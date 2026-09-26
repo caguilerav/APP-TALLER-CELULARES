@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import BolFixLogo from './BolFixLogo';
 import { 
   ShoppingBag, 
@@ -1019,9 +1020,18 @@ export default function SalesView({ currentUser, posPrefillSale, onClearPosPrefi
       {/* ======================================================== */}
       {/* 3. MODAL: AGREGAR PRODUCTO DEL INVENTARIO                 */}
       {/* ======================================================== */}
-      {isInventoryModalOpen && (
-        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 select-none animate-fade-in">
-          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-gray-150 overflow-hidden flex flex-col max-h-[90vh]">
+      {isInventoryModalOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 select-none animate-fade-in"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0, overscrollBehavior: 'contain' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsInventoryModalOpen(false);
+          }}
+        >
+          <div 
+            className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-gray-150 overflow-hidden flex flex-col max-h-[90vh] m-auto relative z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Modal Header */}
             <div className="p-4 sm:p-5 bg-[#111111] text-white flex items-center justify-between shrink-0 border-b border-white/10">
@@ -1187,15 +1197,25 @@ export default function SalesView({ currentUser, posPrefillSale, onClearPosPrefi
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* 4. MODAL: AGREGAR CONCEPTO LIBRE / SERVICIO MANUAL       */}
       {/* ======================================================== */}
-      {isCustomItemModalOpen && (
-        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fade-in h-screen w-screen">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-150 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+      {isCustomItemModalOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fade-in"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0, overscrollBehavior: 'contain' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCustomItemModalOpen(false);
+          }}
+        >
+          <div 
+            className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-150 p-6 space-y-4 max-h-[85vh] overflow-y-auto m-auto relative z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-sm font-black text-gray-900 uppercase">
                 Agregar Concepto Libre / Servicio
@@ -1267,15 +1287,25 @@ export default function SalesView({ currentUser, posPrefillSale, onClearPosPrefi
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* 5. MODAL: REGISTRO RÁPIDO DE CLIENTE                      */}
       {/* ======================================================== */}
-      {isClientModalOpen && (
-        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fade-in h-screen w-screen">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-150 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+      {isClientModalOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fade-in"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0, overscrollBehavior: 'contain' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsClientModalOpen(false);
+          }}
+        >
+          <div 
+            className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-150 p-6 space-y-4 max-h-[85vh] overflow-y-auto m-auto relative z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-sm font-black text-gray-900 uppercase">
                 Registrar Nuevo Cliente
@@ -1331,7 +1361,8 @@ export default function SalesView({ currentUser, posPrefillSale, onClearPosPrefi
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
