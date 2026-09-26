@@ -40,22 +40,33 @@ import {
   ShieldCheck,
   Building2,
   Phone,
-  MapPin
+  MapPin,
+  ShoppingBag
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
 import { Order, OrderStatus, Payment, TimelineEvent, User as SystemUser, UsedSparePart, Product, WorkshopSettings } from '../types';
 import PatternLockDrawer from './PatternLockDrawer';
 import { SparePartsInventoryModal } from './SparePartsInventoryModal';
 import { generateReceiptPdf } from '../utils/receiptPdfGenerator';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface OrderDetailViewProps {
   orderId: string;
   currentUser: SystemUser;
   onBack: () => void;
   onOrderUpdated: () => void;
+  initialPrintView?: boolean;
+  onNavigateToPosWithOrder?: (order: Order, paymentInfo?: { amount: number; paymentMethod: string; notes?: string }) => void;
 }
 
-export default function OrderDetailView({ orderId, currentUser, onBack, onOrderUpdated }: OrderDetailViewProps) {
+export default function OrderDetailView({ 
+  orderId, 
+  currentUser, 
+  onBack, 
+  onOrderUpdated, 
+  initialPrintView = false,
+  onNavigateToPosWithOrder 
+}: OrderDetailViewProps) {
   const [order, setOrder] = useState<Order | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
@@ -161,8 +172,8 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
   const [selectedFullsizeImage, setSelectedFullsizeImage] = useState<string | null>(null);
 
   // Printable ticket state
-  const [showPrintView, setShowPrintView] = useState(false);
-  const [printFormat, setPrintFormat] = useState<'letter' | 'thermal'>('letter');
+  const [showPrintView, setShowPrintView] = useState(initialPrintView);
+  const [printFormat, setPrintFormat] = useState<'letter' | 'thermal' | 'ticket'>('letter');
   const [activePaymentForReceipt, setActivePaymentForReceipt] = useState<Payment | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -335,9 +346,17 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
     loadOrderDetails();
     onOrderUpdated();
 
-    // Redirigir al recibo correspondiente de la orden de inmediato
-    setActivePaymentForReceipt(newPayment);
-    setShowPrintView(true);
+    // Redirigir al carrito como una venta con los detalles de la orden pagada
+    if (onNavigateToPosWithOrder) {
+      onNavigateToPosWithOrder(order, {
+        amount: amountNum,
+        paymentMethod: paymentMethod,
+        notes: paymentNotes || `Cobro de Orden #${order.otNumber}`
+      });
+    } else {
+      setActivePaymentForReceipt(newPayment);
+      setShowPrintView(true);
+    }
   };
 
   const handleSaveChanges = () => {
@@ -354,6 +373,17 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
       setError('El nuevo costo estimado no puede ser menor a los pagos ya registrados.');
       return;
     }
+
+    const partsTotal = !editIsLaborOnly ? editSpareParts.reduce((acc, part) => {
+      if (part.type === 'EXTERNAL') return acc + (part.cost || 0);
+      if (part.type === 'INVENTORY') {
+        const product = availableProducts.find(p => p.id === part.productId);
+        return acc + (product?.salePrice || 0);
+      }
+      return acc;
+    }, 0) : 0;
+
+    const totalCost = costNum + partsTotal;
 
     // Calculate difference in used spare parts of type INVENTORY
     const oldParts = order.spareParts || [];
@@ -406,7 +436,7 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
       lockValue: editLockType !== 'Sin bloqueo' ? editLockValue : undefined,
       problem: editProblem,
       quickDiagnosis: editQuickDiagnosis || undefined,
-      estimatedCost: costNum,
+      estimatedCost: totalCost,
       laborCost: costNum,
       observaciones: editObservaciones || undefined,
       images: editImages.length > 0 ? editImages : undefined,
@@ -514,11 +544,11 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
   };
 
   // Download receipt as official PDF (Letter or Thermal format)
-  const handleDownloadPdfReceipt = () => {
+  const handleDownloadPdfReceipt = async () => {
     if (!order) return;
     try {
       setIsDownloadingPdf(true);
-      generateReceiptPdf({
+      await generateReceiptPdf({
         order,
         activePayment: activePaymentForReceipt,
         printFormat,
@@ -598,6 +628,18 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
                 <Receipt className="w-3.5 h-3.5" />
                 <span>Térmica 80mm</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setPrintFormat('ticket')}
+                className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center space-x-1.5 ${
+                  printFormat === 'ticket'
+                    ? 'bg-[#FACC15] text-black shadow-md shadow-yellow-500/20 scale-[1.02]'
+                    : 'text-gray-300 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>Ticket Celular</span>
+              </button>
             </div>
           </div>
 
@@ -615,38 +657,42 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
                   <Printer className="w-4 h-4 text-black" />
                 </div>
                 <div className="text-left">
-                  <span className="block leading-tight font-extrabold text-[12px]">Imprimir Recibo</span>
+                  <span className="block leading-tight font-extrabold text-[12px]">
+                    {printFormat === 'ticket' ? 'Imprimir Ticket' : 'Imprimir Recibo'}
+                  </span>
                   <span className="block text-[9px] font-semibold text-black/70 tracking-wide">
-                    {printFormat === 'thermal' ? 'Impresora Térmica' : 'Formato Carta'}
+                    {printFormat === 'ticket' ? 'Formato Térmico Pegatina' : (printFormat === 'thermal' ? 'Impresora Térmica' : 'Formato Carta')}
                   </span>
                 </div>
               </button>
 
-              {/* WhatsApp button */}
-              <button
-                id="receipt-whatsapp-btn"
-                onClick={handleShareWhatsApp}
-                className="group flex items-center justify-center space-x-2.5 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-950/40 transition-all cursor-pointer border border-emerald-400/20"
-                title="Enviar detalle directamente por WhatsApp al cliente"
-              >
-                <div className="p-1 rounded-lg bg-white/15">
-                  <MessageCircle className="w-4 h-4 text-white" />
-                </div>
-                <div className="text-left">
-                  <span className="block leading-tight font-extrabold text-[12px]">Enviar WhatsApp</span>
-                  <span className="block text-[9px] font-medium text-emerald-100/80 tracking-wide">
-                    Notificar al cliente
-                  </span>
-                </div>
-              </button>
+              {/* WhatsApp button - Only show for Letter or Thermal receipt, not for Ticket Celular */}
+              {printFormat !== 'ticket' && (
+                <button
+                  id="receipt-whatsapp-btn"
+                  onClick={handleShareWhatsApp}
+                  className="group flex items-center justify-center space-x-2.5 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-950/40 transition-all cursor-pointer border border-emerald-400/20"
+                  title="Enviar detalle directamente por WhatsApp al cliente"
+                >
+                  <div className="p-1 rounded-lg bg-white/15">
+                    <MessageCircle className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <span className="block leading-tight font-extrabold text-[12px]">Enviar WhatsApp</span>
+                    <span className="block text-[9px] font-medium text-emerald-100/80 tracking-wide">
+                      Notificar al cliente
+                    </span>
+                  </div>
+                </button>
+              )}
 
-              {/* Descargar en PDF button (Carta o Térmico) */}
+              {/* Descargar en PDF button (Carta, Térmico o Ticket) */}
               <button
                 id="receipt-download-btn"
                 onClick={handleDownloadPdfReceipt}
                 disabled={isDownloadingPdf}
-                className="group flex items-center justify-center space-x-2.5 px-4 py-2.5 bg-white/10 hover:bg-white/15 active:scale-[0.98] text-gray-100 hover:text-white rounded-2xl font-bold text-xs border border-white/15 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                title={`Descargar recibo oficial en PDF (${printFormat === 'thermal' ? 'Formato Térmico 80mm' : 'Formato Carta'})`}
+                className={`group flex items-center justify-center space-x-2.5 px-4 py-2.5 bg-white/10 hover:bg-white/15 active:scale-[0.98] text-gray-100 hover:text-white rounded-2xl font-bold text-xs border border-white/15 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${printFormat === 'ticket' ? 'sm:col-span-2' : ''}`}
+                title={`Descargar ${printFormat === 'ticket' ? 'ticket celular' : 'recibo oficial'} en PDF`}
               >
                 <div className="p-1 rounded-lg bg-white/10">
                   {isDownloadingPdf ? (
@@ -657,10 +703,10 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
                 </div>
                 <div className="text-left">
                   <span className="block leading-tight font-extrabold text-[12px]">
-                    {isDownloadingPdf ? 'Generando PDF...' : 'Descargar en PDF'}
+                    {isDownloadingPdf ? 'Generando PDF...' : (printFormat === 'ticket' ? 'Descargar Ticket PDF' : 'Descargar en PDF')}
                   </span>
                   <span className="block text-[9px] font-medium text-amber-300/90 tracking-wide">
-                    {printFormat === 'thermal' ? 'PDF Térmica 80mm' : 'PDF Tamaño Carta'}
+                    {printFormat === 'ticket' ? 'Formato Mini 50x70mm' : (printFormat === 'thermal' ? 'PDF Térmica 80mm' : 'PDF Tamaño Carta')}
                   </span>
                 </div>
               </button>
@@ -679,14 +725,26 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
         {/* RECEIPT CONTAINER (Captured for PDF & Printed)           */}
         {/* ======================================================== */}
         <div className="flex justify-center pb-8">
-          {printFormat === 'thermal' ? (
-            /* ======================================================== */
-            /* VIEW 1: TÉRMICA FORMAT (80mm) - 100% NEGRO PURO         */
-            /* ======================================================== */
+          {printFormat === 'ticket' ? (
             <div
-              id="printable-receipt-card"
-              className="thermal-receipt-view w-[330px] bg-white p-5 border border-dashed border-black rounded-3xl shadow-xl print:shadow-none print:border-none print:p-0 font-sans text-xs text-black transition-all select-none"
+              id="printable-ticket-card"
+              className="bg-white p-4 border border-black rounded-lg text-black font-sans text-xs w-[200px] flex flex-col items-center space-y-1 print:p-0"
             >
+              <h2 className="font-bold text-center">Ticket Celular</h2>
+              <p className="w-full"><strong>Cliente:</strong> {order.clientName}</p>
+              <p className="w-full"><strong>Equipo:</strong> {order.brand} {order.model}</p>
+              <p className="w-full"><strong>Clave:</strong> {order.lockValue || 'N/A'}</p>
+              <p className="w-full"><strong>Técnico:</strong> {order.assignedTechnicianName || 'Pendiente'}</p>
+              <div className="mt-2">
+                <QRCodeSVG value={`${window.location.origin}/order/${order.id}`} size={100} />
+              </div>
+              <p className="text-[8px] mt-1 text-center">Escanea para detalle</p>
+            </div>
+          ) : printFormat === 'thermal' ? (
+              <div
+                id="printable-receipt-card"
+                className="thermal-receipt-view w-[330px] bg-white p-5 border border-dashed border-black rounded-3xl shadow-xl print:shadow-none print:border-none print:p-0 font-sans text-xs text-black transition-all select-none"
+              >
               {/* Header (100% Black) */}
               <div className="text-center pb-3 border-b-2 border-dashed border-black">
                 <div className="inline-flex items-center justify-center mb-1.5">
@@ -1726,14 +1784,20 @@ export default function OrderDetailView({ orderId, currentUser, onBack, onOrderU
           </div>
 
           {remainingBalance > 0 ? (
-            <button
-              id="detail-add-payment-toggle"
-              onClick={() => setShowPaymentModal(true)}
-              className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-1 shadow-sm cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Registrar Pago / Abono</span>
-            </button>
+            <div className="space-y-2 mt-4">
+              {onNavigateToPosWithOrder && (
+                <button
+                  type="button"
+                  id="detail-cobrar-pos-btn"
+                  onClick={() => onNavigateToPosWithOrder(order)}
+                  className="w-full bg-[#111111] hover:bg-black active:scale-[0.99] text-[#FACC15] py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-center space-x-2 border border-white/10 shadow-sm cursor-pointer transition-all"
+                  title="Cobrar este servicio directamente en el Carrito de Ventas (POS)"
+                >
+                  <ShoppingBag className="w-4 h-4 text-[#FACC15]" />
+                  <span>Cobrar en Carrito POS</span>
+                </button>
+              )}
+            </div>
           ) : (
             <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl text-center border border-emerald-100 text-xs font-extrabold flex items-center justify-center space-x-1.5 mt-4">
               <CheckCircle className="w-4 h-4" />

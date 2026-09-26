@@ -32,7 +32,7 @@ import { SparePartsInventoryModal } from './SparePartsInventoryModal';
 
 interface ReceptionViewProps {
   currentUser: User;
-  onOrderCreated: (orderId: string) => void;
+  onOrderCreated: (orderId: string, openPrintView?: boolean) => void;
 }
 
 export default function ReceptionView({ currentUser, onOrderCreated }: ReceptionViewProps) {
@@ -564,7 +564,14 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
         accessories,
         physicalState,
         images: images.length > 0 ? images : undefined,
-        estimatedCost: costNum,
+        estimatedCost: costNum + (!isLaborOnly ? spareParts.reduce((acc, part) => {
+          if (part.type === 'EXTERNAL') return acc + (part.cost || 0);
+          if (part.type === 'INVENTORY') {
+            const product = availableProducts.find(p => p.id === part.productId);
+            return acc + (product?.salePrice || 0);
+          }
+          return acc;
+        }, 0) : 0),
         laborCost: costNum,
         advancePayment: advanceNum,
         status: 'RECIBIDO' as OrderStatus,
@@ -636,9 +643,19 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
 
   // Remaining balance calculation
   const calculatedRemaining = () => {
-    const cost = parseFloat(estimatedCost) || 0;
+    const labor = parseFloat(estimatedCost) || 0;
+    const partsTotal = spareParts.reduce((acc, part) => {
+      if (part.type === 'EXTERNAL') {
+        return acc + (part.cost || 0);
+      } else if (part.type === 'INVENTORY') {
+        const product = availableProducts.find(p => p.id === part.productId);
+        return acc + (product?.salePrice || 0);
+      }
+      return acc;
+    }, 0);
+    const total = labor + partsTotal;
     const advance = parseFloat(advancePayment) || 0;
-    return Math.max(0, cost - advance);
+    return Math.max(0, total - advance);
   };
 
   const handleAddBrandSubmit = (e: React.FormEvent) => {
@@ -724,7 +741,7 @@ export default function ReceptionView({ currentUser, onOrderCreated }: Reception
         <div className="flex flex-col space-y-3">
           <button
             id="view-order-details-btn"
-            onClick={() => onOrderCreated(successOrder.id)}
+            onClick={() => onOrderCreated(successOrder.id, true)}
             className="w-full bg-[#111111] text-white py-3.5 px-4 rounded-xl font-bold shadow-md hover:bg-black transition-all text-sm"
           >
             Ver Detalles y Comprobante (PDF)

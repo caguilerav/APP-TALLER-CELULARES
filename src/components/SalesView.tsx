@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import BolFixLogo from './BolFixLogo';
 import { 
   ShoppingBag, 
@@ -25,31 +25,47 @@ import {
   Tag,
   History,
   Check,
-  AlertCircle
+  AlertCircle,
+  Package,
+  QrCode,
+  ArrowRight,
+  MessageCircle,
+  Store,
+  Layers,
+  Wrench,
+  Percent,
+  Receipt
 } from 'lucide-react';
 import { mockDb } from '../db/mockDb';
 import { Product, Sale, SaleItem, Client, User as SystemUser, WorkshopSettings } from '../types';
 
 interface SalesViewProps {
   currentUser: SystemUser;
+  posPrefillSale?: {
+    item: SaleItem;
+    client?: { id?: string; name: string; phone: string };
+    paymentMethod?: string;
+    notes?: string;
+  } | null;
+  onClearPosPrefill?: () => void;
 }
 
 const COMMON_SERVICES = [
   { id: 'srv-1', name: 'Limpieza y Mantenimiento Físico', category: 'Servicio', price: 50 },
   { id: 'srv-2', name: 'Instalación de Software / Flash / Reset', category: 'Servicio', price: 70 },
-  { id: 'srv-3', name: 'Cambio de Vidrio Protector Templado', category: 'Servicio', price: 30 },
+  { id: 'srv-3', name: 'Instalación de Vidrio Protector Templado', category: 'Servicio', price: 25 },
   { id: 'srv-4', name: 'Diagnóstico Técnico Avanzado', category: 'Servicio', price: 40 },
-  { id: 'srv-5', name: 'Instalación de Protector de Hidrogel', category: 'Servicio', price: 45 },
-  { id: 'srv-6', name: 'Microsoldadura Básica / Cambio de Pin', category: 'Servicio', price: 120 }
+  { id: 'srv-5', name: 'Instalación de Protector de Hidrogel Premium', category: 'Servicio', price: 45 },
+  { id: 'srv-6', name: 'Cambio de Pin de Carga / Micro-soldadura', category: 'Servicio', price: 120 }
 ];
 
-export default function SalesView({ currentUser }: SalesViewProps) {
+export default function SalesView({ currentUser, posPrefillSale, onClearPosPrefill }: SalesViewProps) {
   // DB States
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [recentSales, setRecentSales] = useState<Sale[]>([]);
 
-  // Search & Filters
+  // Search & Catalog Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [selectedType, setSelectedType] = useState<'ALL' | 'PRODUCTS' | 'SERVICES'>('ALL');
@@ -63,29 +79,50 @@ export default function SalesView({ currentUser }: SalesViewProps) {
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
-  const [showSalesSuggestions, setShowSalesSuggestions] = useState(true);
+
+  // Inventory Modal State
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryCategory, setInventoryCategory] = useState<string>('Todos');
+  const [onlyInStock, setOnlyInStock] = useState(true);
+  const [addedItemNotice, setAddedItemNotice] = useState<string | null>(null);
+
+  // Custom Item Modal
+  const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
+  const [customItemName, setCustomItemName] = useState('');
+  const [customItemPrice, setCustomItemPrice] = useState('');
+  const [customItemCategory, setCustomItemCategory] = useState('Servicio');
+
+  // Sales History Modal
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   // Cart State
   const [cart, setCart] = useState<SaleItem[]>([]);
-  const [discount, setDiscount] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<'FIXED' | 'PERCENT'>('FIXED');
+  const [discountValue, setDiscountValue] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('Efectivo');
+  const [cashTendered, setCashTendered] = useState<string>('');
+  const [orderNotice, setOrderNotice] = useState<string | null>(null);
 
   // Workshop Settings
   const [workshopSettings, setWorkshopSettings] = useState<WorkshopSettings>(() => mockDb.getSettings());
 
+  // Barcode / Scanner input ref
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+
   const availablePaymentMethods = useMemo(() => {
     return workshopSettings.enabledPaymentMethods && workshopSettings.enabledPaymentMethods.length > 0
       ? workshopSettings.enabledPaymentMethods
-      : ['Efectivo', 'Tarjeta', 'Transferencia', 'QR', 'Pago Móvil'];
+      : ['Efectivo', 'QR', 'Transferencia', 'Tarjeta', 'Pago Móvil'];
   }, [workshopSettings.enabledPaymentMethods]);
 
   useEffect(() => {
     if (!availablePaymentMethods.includes(paymentMethod)) {
       setPaymentMethod(availablePaymentMethods[0] || 'Efectivo');
     }
-  }, [availablePaymentMethods]);
+  }, [availablePaymentMethods, paymentMethod]);
 
-  // Print/Success Modal State
+  // Completed sale for ticket printing
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
 
   // Load Initial Data
@@ -99,11 +136,13 @@ export default function SalesView({ currentUser }: SalesViewProps) {
     const allSales = mockDb.getSales().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     setRecentSales(allSales);
 
-    // Set "Público General" as default client on mount if available
-    const pubGeneral = allClients.find(c => c.id === 'client-publico-general');
-    if (pubGeneral) {
-      setSelectedClient(pubGeneral);
-      setClientSearch(pubGeneral.name);
+    // Default to "Público General" if no client is selected
+    if (!selectedClient) {
+      const pubGeneral = allClients.find(c => c.id === 'client-publico-general');
+      if (pubGeneral) {
+        setSelectedClient(pubGeneral);
+        setClientSearch(pubGeneral.name);
+      }
     }
   };
 
@@ -123,43 +162,131 @@ export default function SalesView({ currentUser }: SalesViewProps) {
     };
   }, []);
 
-  // Unique categories of products
-  const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
+  // Listen for redirected service orders from work order payment
+  useEffect(() => {
+    if (posPrefillSale) {
+      // Add or replace service item in cart
+      setCart(prev => {
+        const withoutSameOrder = prev.filter(
+          item => !(item.type === 'SERVICE' && item.referenceId === posPrefillSale.item.referenceId)
+        );
+        return [posPrefillSale.item, ...withoutSameOrder];
+      });
 
-  // Cart operations
-  const addToCart = (item: { id: string; name: string; price: number; type: 'PRODUCT' | 'SERVICE'; stock?: number }) => {
+      // Set client from order
+      if (posPrefillSale.client) {
+        const foundClient = clients.find(c => c.name.toLowerCase() === posPrefillSale.client?.name.toLowerCase());
+        if (foundClient) {
+          setSelectedClient(foundClient);
+          setClientSearch(foundClient.name);
+        } else {
+          const tempClient: Client = {
+            id: posPrefillSale.client.id || `client-${Date.now()}`,
+            name: posPrefillSale.client.name,
+            phone: posPrefillSale.client.phone,
+            createdAt: new Date().toISOString()
+          };
+          setSelectedClient(tempClient);
+          setClientSearch(tempClient.name);
+        }
+      }
+
+      // Set payment method
+      if (posPrefillSale.paymentMethod) {
+        setPaymentMethod(posPrefillSale.paymentMethod);
+      }
+
+      // Show high-priority notice banner
+      setOrderNotice(
+        `Orden #${posPrefillSale.item.orderOt || ''} (${posPrefillSale.item.orderEquipment || 'Equipo'}) agregada al carrito POS por Bs. ${posPrefillSale.item.price}.`
+      );
+
+      // Auto clear prefill trigger
+      if (onClearPosPrefill) {
+        onClearPosPrefill();
+      }
+    }
+  }, [posPrefillSale, clients, onClearPosPrefill]);
+
+  // Categories list
+  const categories = useMemo(() => {
+    return ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
+  }, [products]);
+
+  // Calculations
+  const subtotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  }, [cart]);
+
+  const discountAmount = useMemo(() => {
+    if (discountType === 'PERCENT') {
+      return Math.round((subtotal * (discountValue / 100)) * 100) / 100;
+    }
+    return Math.min(subtotal, Math.max(0, discountValue));
+  }, [subtotal, discountType, discountValue]);
+
+  const total = useMemo(() => {
+    return Math.max(0, subtotal - discountAmount);
+  }, [subtotal, discountAmount]);
+
+  const changeDue = useMemo(() => {
+    const tendered = parseFloat(cashTendered);
+    if (isNaN(tendered) || tendered < total) return 0;
+    return Math.round((tendered - total) * 100) / 100;
+  }, [cashTendered, total]);
+
+  // Add product to cart
+  const addToCart = (item: { 
+    id: string; 
+    name: string; 
+    price: number; 
+    type: 'PRODUCT' | 'SERVICE'; 
+    stock?: number;
+    category?: string;
+    sku?: string;
+    details?: string;
+  }, qtyToAdd: number = 1) => {
     const existingIdx = cart.findIndex(c => c.type === item.type && c.referenceId === item.id);
     
     if (existingIdx !== -1) {
       const updatedCart = [...cart];
-      const newQty = updatedCart[existingIdx].quantity + 1;
+      const newQty = updatedCart[existingIdx].quantity + qtyToAdd;
       
-      // Stock check if product and negative stock is not allowed
+      // Stock check
       if (!workshopSettings.allowNegativeStock && item.type === 'PRODUCT' && item.stock !== undefined && newQty > item.stock) {
-        alert(`No hay suficiente stock disponible. Stock máximo: ${item.stock}`);
+        alert(`Stock máximo disponible para este producto: ${item.stock} unidades.`);
         return;
       }
       
       updatedCart[existingIdx].quantity = newQty;
       setCart(updatedCart);
     } else {
-      // Stock check for first item
       if (!workshopSettings.allowNegativeStock && item.type === 'PRODUCT' && item.stock !== undefined && item.stock <= 0) {
-        alert('Este producto está agotado.');
+        alert('Este producto no tiene stock disponible.');
         return;
       }
       
       setCart([
         ...cart,
         {
+          id: `item-${Date.now()}-${Math.random()}`,
           type: item.type,
           referenceId: item.id,
           name: item.name,
-          quantity: 1,
-          price: item.price
+          quantity: qtyToAdd,
+          price: item.price,
+          category: item.category,
+          sku: item.sku,
+          details: item.details
         }
       ]);
     }
+
+    // Visual feedback
+    setAddedItemNotice(item.name);
+    setTimeout(() => {
+      setAddedItemNotice(null);
+    }, 1800);
   };
 
   const updateCartQuantity = (index: number, delta: number) => {
@@ -170,11 +297,10 @@ export default function SalesView({ currentUser }: SalesViewProps) {
     if (newQty <= 0) {
       updatedCart.splice(index, 1);
     } else {
-      // Check stock if product
       if (!workshopSettings.allowNegativeStock && item.type === 'PRODUCT') {
         const prod = products.find(p => p.id === item.referenceId);
         if (prod && newQty > prod.stock) {
-          alert(`No hay suficiente stock disponible. Stock máximo: ${prod.stock}`);
+          alert(`No hay suficiente stock. Máximo disponible: ${prod.stock}`);
           return;
         }
       }
@@ -189,38 +315,149 @@ export default function SalesView({ currentUser }: SalesViewProps) {
     setCart(updatedCart);
   };
 
-  // Calculations
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const total = Math.max(0, subtotal - discount);
+  const clearCart = () => {
+    if (cart.length === 0) return;
+    setCart([]);
+    setDiscountValue(0);
+    setCashTendered('');
+    setOrderNotice(null);
+  };
 
-  // Client dropdown autocomplete list
-  // Fix "Público General" to always appear at the top
-  const filteredClientsForDropdown = (() => {
-    const query = clientSearch.toLowerCase().trim();
-    // Prioritize client-publico-general
-    const pg = clients.find(c => c.id === 'client-publico-general');
-    const others = clients.filter(c => c.id !== 'client-publico-general');
+  // Barcode / Fast search handler
+  const handleBarcodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
 
-    const matches = others.filter(c => 
-      c.name.toLowerCase().includes(query) || 
-      c.phone.toLowerCase().includes(query)
-    );
-
-    // If query is empty, show pg at top, followed by other clients
-    if (!query) {
-      return pg ? [pg, ...others] : others;
+    // Search exact barcode first
+    const barcodeMatch = products.find(p => p.barcode && p.barcode.toLowerCase() === query.toLowerCase());
+    if (barcodeMatch) {
+      addToCart({
+        id: barcodeMatch.id,
+        name: barcodeMatch.name,
+        price: barcodeMatch.salePrice,
+        type: 'PRODUCT',
+        stock: barcodeMatch.stock,
+        category: barcodeMatch.category,
+        sku: barcodeMatch.code
+      });
+      setSearchQuery('');
+      return;
     }
 
-    // If there is query, show pg if it matches "publico" or similar, followed by matching others
-    const pgMatches = pg && (pg.name.toLowerCase().includes(query) || pg.phone.toLowerCase().includes(query));
-    return pgMatches ? [pg, ...matches] : matches;
-  })();
+    // Search exact internal code
+    const codeMatch = products.find(p => p.code.toLowerCase() === query.toLowerCase());
+    if (codeMatch) {
+      addToCart({
+        id: codeMatch.id,
+        name: codeMatch.name,
+        price: codeMatch.salePrice,
+        type: 'PRODUCT',
+        stock: codeMatch.stock,
+        category: codeMatch.category,
+        sku: codeMatch.code
+      });
+      setSearchQuery('');
+      return;
+    }
 
-  // Quick register client from sales screen
+    // If single match by name
+    const nameMatches = products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+    if (nameMatches.length === 1) {
+      const match = nameMatches[0];
+      addToCart({
+        id: match.id,
+        name: match.name,
+        price: match.salePrice,
+        type: 'PRODUCT',
+        stock: match.stock,
+        category: match.category,
+        sku: match.code
+      });
+      setSearchQuery('');
+    }
+  };
+
+  // Add custom fee/service
+  const handleAddCustomItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    const priceNum = parseFloat(customItemPrice);
+    if (!customItemName.trim() || isNaN(priceNum) || priceNum <= 0) {
+      alert('Por favor ingrese un concepto y precio válido');
+      return;
+    }
+
+    addToCart({
+      id: `custom-${Date.now()}`,
+      name: customItemName.trim(),
+      price: priceNum,
+      type: 'SERVICE',
+      category: customItemCategory
+    });
+
+    setCustomItemName('');
+    setCustomItemPrice('');
+    setIsCustomItemModalOpen(false);
+  };
+
+  // Complete Sale & Checkout
+  const handleCompleteSale = () => {
+    if (cart.length === 0) {
+      alert('El carrito de compras está vacío.');
+      return;
+    }
+    if (!selectedClient) {
+      alert('Por favor seleccione un cliente para la venta.');
+      return;
+    }
+
+    const salePayload = {
+      clientId: selectedClient.id,
+      clientName: selectedClient.name,
+      clientPhone: selectedClient.phone,
+      items: cart,
+      subtotal,
+      discount: discountAmount,
+      total,
+      paymentMethod
+    };
+
+    try {
+      const newSale = mockDb.createSale(salePayload, currentUser.name);
+      setCompletedSale(newSale);
+
+      // Auto print if enabled
+      if (workshopSettings.autoPrintTicket) {
+        setTimeout(() => {
+          window.print();
+        }, 500);
+      }
+
+      // Refresh records
+      loadData();
+
+      // Reset cart and tender
+      setCart([]);
+      setDiscountValue(0);
+      setCashTendered('');
+      setOrderNotice(null);
+
+      // Reset client to Publico General
+      const pg = clients.find(c => c.id === 'client-publico-general');
+      if (pg) {
+        setSelectedClient(pg);
+        setClientSearch(pg.name);
+      }
+    } catch (err: any) {
+      alert('Error al registrar la venta: ' + (err?.message || err));
+    }
+  };
+
+  // Quick client submit
   const handleQuickClientSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName.trim() || !newClientPhone.trim()) {
-      alert('Nombre y teléfono son campos obligatorios');
+      alert('Nombre y teléfono son obligatorios');
       return;
     }
 
@@ -232,662 +469,800 @@ export default function SalesView({ currentUser }: SalesViewProps) {
       undefined
     );
 
-    // Reload list and set as active client
-    const updatedClients = mockDb.getClients();
-    setClients(updatedClients);
+    const updated = mockDb.getClients();
+    setClients(updated);
     setSelectedClient(created);
     setClientSearch(created.name);
-    
-    // Clear & close
     setNewClientName('');
     setNewClientPhone('');
     setIsClientModalOpen(false);
   };
 
-  // Live Matching Clients in Sales Quick Modal
-  const matchingSalesClients = useMemo(() => {
-    const rawQuery = newClientName.trim();
-    if (!rawQuery || rawQuery.length < 2) return [];
+  // Filter products for inventory modal
+  const filteredInventoryProducts = useMemo(() => {
+    const q = inventorySearch.toLowerCase().trim();
+    return products.filter(p => {
+      const matchesSearch = !q || 
+        p.name.toLowerCase().includes(q) || 
+        p.code.toLowerCase().includes(q) || 
+        (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+        p.brand.toLowerCase().includes(q);
+      const matchesCategory = inventoryCategory === 'Todos' || p.category === inventoryCategory;
+      const matchesStock = !onlyInStock || p.stock > 0;
+      return matchesSearch && matchesCategory && matchesStock;
+    });
+  }, [products, inventorySearch, inventoryCategory, onlyInStock]);
 
-    const normalize = (str: string) =>
-      str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  // Filter products for main view quick grid
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return products.filter(p => {
+      const matchesSearch = !q || 
+        p.name.toLowerCase().includes(q) || 
+        p.code.toLowerCase().includes(q) || 
+        (p.barcode && p.barcode.toLowerCase().includes(q));
+      const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, selectedCategory]);
 
-    const normalizedQuery = normalize(rawQuery);
+  const filteredServices = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return COMMON_SERVICES.filter(s => !q || s.name.toLowerCase().includes(q));
+  }, [searchQuery]);
 
-    return clients.filter(c => {
-      const normName = normalize(c.name || '');
-      return normName.includes(normalizedQuery);
-    }).slice(0, 6);
-  }, [clients, newClientName]);
-
-  const handleSelectExistingFromSalesModal = (client: Client) => {
-    setSelectedClient(client);
-    setClientSearch(client.name);
-    setNewClientName('');
-    setNewClientPhone('');
-    setShowSalesSuggestions(false);
-    setIsClientModalOpen(false);
-  };
-
-  // Complete Sale
-  const handleCompleteSale = () => {
-    if (cart.length === 0) {
-      alert('El carrito está vacío.');
-      return;
-    }
-    if (!selectedClient) {
-      alert('Por favor seleccione un cliente o elija Público General.');
-      return;
-    }
-
-    const salePayload = {
-      clientId: selectedClient.id,
-      clientName: selectedClient.name,
-      clientPhone: selectedClient.phone,
-      items: cart,
-      subtotal,
-      discount,
-      total,
-      paymentMethod
-    };
-
-    try {
-      const newSale = mockDb.createSale(salePayload, currentUser.name);
-      setCompletedSale(newSale);
-      
-      // Auto-print ticket if enabled in workshop settings
-      if (workshopSettings.autoPrintTicket) {
-        setTimeout(() => {
-          window.print();
-        }, 500);
-      }
-
-      // Refresh database records on sales screen
-      loadData();
-      
-      // Clear cart
-      setCart([]);
-      setDiscount(0);
-      setPaymentMethod('Efectivo');
-      
-      // Keep selected client as Publico General for the next sale
-      const pg = clients.find(c => c.id === 'client-publico-general');
-      if (pg) {
-        setSelectedClient(pg);
-        setClientSearch(pg.name);
-      } else {
-        setSelectedClient(null);
-        setClientSearch('');
-      }
-    } catch (err: any) {
-      alert('Error al registrar la venta: ' + err.message);
-    }
-  };
-
-  // Render filter items
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (p.barcode && p.barcode.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const filteredServices = COMMON_SERVICES.filter(s => 
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Today's total sales
+  const todaySalesStats = useMemo(() => {
+    const today = new Date().toDateString();
+    const todayList = recentSales.filter(s => new Date(s.date).toDateString() === today);
+    const sum = todayList.reduce((acc, s) => acc + s.total, 0);
+    return { count: todayList.length, sum };
+  }, [recentSales]);
 
   return (
-    <div id="sales-module-view" className="space-y-6 pb-12 animate-fade-in text-gray-900">
-      {/* HEADER ROW */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-black text-[#FACC15] rounded-xl shadow-md">
-            <ShoppingBag className="w-5.5 h-5.5" />
+    <div id="pos-module-view" className="space-y-5 pb-16 animate-fade-in text-gray-900 select-none">
+      
+      {/* ======================================================== */}
+      {/* 1. TOP POS HEADER & PRIMARY ACTIONS                       */}
+      {/* ======================================================== */}
+      <div className="bg-[#111111] text-white p-4 sm:p-5 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/10">
+        
+        {/* Brand & Cashier Info */}
+        <div className="flex items-center space-x-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-[#FACC15] text-black flex items-center justify-center font-black shadow-lg shadow-yellow-500/20 shrink-0">
+            <Store className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-gray-900 tracking-tight">Módulo de Ventas</h1>
-            <p className="text-xs text-gray-500">Caja / Facturación rápida de repuestos, accesorios y servicios</p>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white uppercase">
+                Punto de Venta (POS)
+              </h1>
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-400 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                Caja Activa
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 font-medium">
+              Cajero: <span className="text-[#FACC15] font-bold">{currentUser.name}</span> · Ventas hoy: <strong className="text-white font-mono">{todaySalesStats.count}</strong> (Bs. {todaySalesStats.sum.toLocaleString('es-ES')})
+            </p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-[10px] bg-[#FACC15]/15 text-yellow-800 border border-[#FACC15]/30 font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
-            Cajero: {currentUser.name}
-          </span>
+
+        {/* Action Controls */}
+        <div className="flex items-center flex-wrap gap-2.5">
+          
+          {/* Quick Custom Item */}
           <button
+            type="button"
+            onClick={() => setIsCustomItemModalOpen(true)}
+            className="px-3.5 py-2.5 bg-white/10 hover:bg-white/15 text-gray-200 hover:text-white font-bold text-xs rounded-xl transition-all flex items-center space-x-1.5 cursor-pointer border border-white/10"
+            title="Agregar servicio o concepto manual libre"
+          >
+            <Plus className="w-4 h-4 text-[#FACC15]" />
+            <span className="hidden sm:inline">Concepto Libre</span>
+          </button>
+
+          {/* Sales History */}
+          <button
+            type="button"
+            id="pos-history-btn"
+            onClick={() => setIsHistoryModalOpen(true)}
+            className="px-3 py-2.5 bg-white/10 hover:bg-white/15 text-gray-200 hover:text-white font-bold text-xs rounded-xl transition-all flex items-center space-x-1.5 cursor-pointer border border-white/10"
+            title="Ver ventas recientes y reimprimir comprobantes"
+          >
+            <History className="w-4 h-4 text-gray-300" />
+            <span className="hidden md:inline">Historial</span>
+          </button>
+
+          <button
+            type="button"
             onClick={loadData}
-            className="p-2 text-gray-500 hover:text-black hover:bg-gray-100 rounded-xl transition-all cursor-pointer"
-            title="Recargar datos de inventario"
+            className="p-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl transition-all cursor-pointer"
+            title="Actualizar datos de inventario"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: CATALOG GRID (8 cols) */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs space-y-4">
-            {/* Search and catalog tab selector */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
-                <input
-                  id="sales-catalog-search"
-                  type="text"
-                  placeholder="Buscar producto por nombre, código interno o barra..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15] font-semibold transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 font-bold text-xs"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
+      {/* ======================================================== */}
+      {/* NOTICE BANNER: REDIRECTED ORDER FROM SERVICE PAYMENT      */}
+      {/* ======================================================== */}
+      {orderNotice && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-[#FACC15]/20 to-amber-500/15 border-2 border-[#FACC15] p-3.5 rounded-2xl flex items-center justify-between text-gray-900 shadow-md animate-fade-in">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-[#FACC15] text-black rounded-xl shadow-xs">
+              <Sparkles className="w-5 h-5 text-black" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-gray-900 tracking-tight">
+                {orderNotice}
+              </p>
+              <p className="text-[11px] text-gray-600 font-medium">
+                La orden ya está lista en el carrito. Puedes completar el cobro ahora o añadir accesorios y repuestos adicionales.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOrderNotice(null)}
+            className="p-1 hover:bg-black/10 rounded-lg text-gray-600 hover:text-black cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
-              {/* Type Switch */}
-              <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => { setSelectedType('ALL'); setSelectedCategory('Todos'); }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wide transition-all ${
-                    selectedType === 'ALL' ? 'bg-black text-[#FACC15] shadow-xs' : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  Todo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedType('PRODUCTS')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wide transition-all ${
-                    selectedType === 'PRODUCTS' ? 'bg-black text-[#FACC15] shadow-xs' : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  Productos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedType('SERVICES'); setSelectedCategory('Todos'); }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wide transition-all ${
-                    selectedType === 'SERVICES' ? 'bg-black text-[#FACC15] shadow-xs' : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  Servicios
-                </button>
+      {/* Temporary visual feedback when adding item */}
+      {addedItemNotice && (
+        <div className="fixed bottom-6 right-6 z-50 bg-black text-[#FACC15] px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center space-x-2 border border-white/20 animate-bounce">
+          <Check className="w-4 h-4 text-[#FACC15]" />
+          <span>"{addedItemNotice}" añadido al carrito</span>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 2. MAIN POS WORKSPACE: ONLY THE PREMIUM POS CART         */}
+      {/* ======================================================== */}
+      <div className="max-w-3xl mx-auto w-full">
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden flex flex-col min-h-[520px]">
+          
+          {/* Cart Header */}
+          <div className="p-3 bg-[#111111] text-white flex items-center justify-between border-b border-white/10 shrink-0">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-xl bg-[#FACC15] text-black flex items-center justify-center font-black shadow-md shrink-0">
+                <ShoppingBag className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-white uppercase">CARRITO</h2>
+                <span className="text-[10px] text-gray-400 font-medium">
+                  {cart.reduce((sum, i) => sum + i.quantity, 0)} ítem(s)
+                </span>
               </div>
             </div>
 
-            {/* Category horizontal scroller for Products */}
-            {selectedType !== 'SERVICES' && (
+            <div className="flex items-center space-x-1.5">
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  id="cart-vaciar-btn"
+                  onClick={clearCart}
+                  className="px-2.5 py-1.5 text-[10px] font-bold text-red-400 hover:text-red-300 hover:bg-red-950/40 bg-white/5 border border-red-900/30 rounded-lg transition-all cursor-pointer flex items-center space-x-1"
+                  title="Vaciar"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>X</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+            {/* Client Selector Box */}
+            <div className="p-3.5 bg-gray-50 border-b border-gray-150 shrink-0 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider flex items-center space-x-1">
+                  <User className="w-3 h-3 text-gray-500" />
+                  <span>Cliente de la Venta</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsClientModalOpen(true)}
+                  className="text-[10px] font-bold text-[#FACC15] hover:underline cursor-pointer"
+                >
+                  + Nuevo Cliente
+                </button>
+              </div>
+
+              <div className="relative">
+                <div 
+                  onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
+                  className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs flex items-center justify-between cursor-pointer hover:border-gray-300 transition-all"
+                >
+                  <div className="flex items-center space-x-2 truncate">
+                    <div className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-700 shrink-0">
+                      {selectedClient ? selectedClient.name.charAt(0).toUpperCase() : 'G'}
+                    </div>
+                    <div className="truncate">
+                      <span className="font-extrabold text-gray-900 truncate block">
+                        {selectedClient ? selectedClient.name : 'Público General'}
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-mono block">
+                        {selectedClient?.phone ? `Telf: ${selectedClient.phone}` : 'Sin teléfono registrado'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-gray-400 text-xs">▼</span>
+                </div>
+
+                {/* Dropdown list */}
+                {isClientDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl z-30 p-2 max-h-56 overflow-y-auto space-y-1">
+                    <input
+                      type="text"
+                      placeholder="Buscar cliente..."
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-black mb-1"
+                    />
+
+                    {clients
+                      .filter(c => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase()) || c.phone.includes(clientSearch))
+                      .slice(0, 6)
+                      .map((c) => (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setSelectedClient(c);
+                            setClientSearch(c.name);
+                            setIsClientDropdownOpen(false);
+                          }}
+                          className={`p-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                            selectedClient?.id === c.id ? 'bg-[#FACC15]/20 font-bold text-black' : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <span className="truncate">{c.name}</span>
+                          <span className="text-[10px] text-gray-400 font-mono">{c.phone}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Cart Items List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5 min-h-[160px] scrollbar-thin">
+              {cart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-3 text-gray-400">
+                  <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center text-gray-300">
+                    <ShoppingBag className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-600">El carrito está vacío</p>
+                    <p className="text-[11px] text-gray-400 max-w-[200px] mt-0.5">
+                      Agrega productos del inventario o cobra una orden de servicio.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsInventoryModalOpen(true)}
+                    className="px-5 py-3 bg-gradient-to-r from-[#FACC15] to-amber-400 hover:from-amber-400 hover:to-[#FACC15] text-black font-black text-xs rounded-2xl shadow-lg shadow-yellow-500/20 active:scale-[0.98] transition-all flex items-center space-x-2 cursor-pointer border border-yellow-300/40"
+                  >
+                    <Package className="w-4.5 h-4.5 text-black" />
+                    <span>Agregar Producto del Inventario</span>
+                  </button>
+                </div>
+              ) : (
+                cart.map((item, index) => {
+                  const isServiceOrder = item.type === 'SERVICE' && Boolean(item.orderOt);
+
+                  return (
+                    <div
+                      key={item.id || index}
+                      className={`p-3 rounded-2xl border transition-all ${
+                        isServiceOrder
+                          ? 'bg-gradient-to-r from-amber-50/50 via-yellow-50/30 to-amber-50/50 border-[#FACC15] shadow-xs'
+                          : 'bg-white border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {/* Service Order Specific Header Tag */}
+                      {isServiceOrder && (
+                        <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-yellow-200/60">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-yellow-900 bg-[#FACC15] px-2 py-0.5 rounded-md flex items-center space-x-1">
+                            <Sparkles className="w-3 h-3 text-black" />
+                            <span>ORDEN DE TRABAJO #{item.orderOt}</span>
+                          </span>
+                          <span className="text-[10px] text-gray-500 font-bold">
+                            Técnico: {item.orderTechnician || 'Taller'}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <h4 className="text-xs font-black text-gray-900 leading-tight truncate">
+                            {item.name}
+                          </h4>
+
+                          {/* Extra info for service order or product SKU */}
+                          {isServiceOrder ? (
+                            <div className="text-[10px] text-gray-600 space-y-0.5">
+                              <p className="truncate"><strong>Equipo:</strong> {item.orderEquipment}</p>
+                              {item.orderIssue && (
+                                <p className="truncate text-gray-500"><strong>Falla:</strong> {item.orderIssue}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-gray-400 font-mono">
+                              {item.sku ? `SKU: ${item.sku} · ` : ''}Unit: Bs. {item.price.toLocaleString('es-ES')}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Remove Button */}
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(index)}
+                          className="p-1 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                          title="Quitar ítem"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Stepper & Line Subtotal */}
+                      <div className="pt-2 mt-2 flex items-center justify-between border-t border-gray-100">
+                        {/* Stepper (Only editable for non-service orders or allowed qty) */}
+                        {!isServiceOrder ? (
+                          <div className="flex items-center space-x-1 bg-gray-100 p-0.5 rounded-xl">
+                            <button
+                              type="button"
+                              onClick={() => updateCartQuantity(index, -1)}
+                              className="w-6 h-6 rounded-lg bg-white text-gray-800 flex items-center justify-center font-bold hover:bg-gray-200 transition-colors cursor-pointer"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-7 text-center font-mono text-xs font-black text-gray-900">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateCartQuantity(index, 1)}
+                              className="w-6 h-6 rounded-lg bg-white text-gray-800 flex items-center justify-center font-bold hover:bg-gray-200 transition-colors cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-bold text-gray-500 bg-white/80 px-2 py-0.5 rounded-md border border-yellow-200">
+                            Cobro Servicio (Cant: 1)
+                          </span>
+                        )}
+
+                        <span className="font-mono text-xs font-black text-gray-900">
+                          Bs. {(item.price * item.quantity).toLocaleString('es-ES')}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Financial Summary & Checkout Controls */}
+            {cart.length > 0 && (
+              <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0 space-y-3.5">
+                
+                {/* Subtotal & Discount row */}
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="font-mono font-bold">Bs. {subtotal.toLocaleString('es-ES')}</span>
+                  </div>
+
+                  {/* Discount toggle and input */}
+                  <div className="flex items-center justify-between text-gray-600 pt-1 border-t border-dashed border-gray-200">
+                    <div className="flex items-center space-x-1">
+                      <span className="text-[11px] font-bold">Descuento</span>
+                      <div className="flex bg-gray-200 p-0.5 rounded-lg text-[9px] font-black">
+                        <button
+                          type="button"
+                          onClick={() => setDiscountType('FIXED')}
+                          className={`px-1.5 py-0.5 rounded-md cursor-pointer ${discountType === 'FIXED' ? 'bg-white text-black shadow-xs' : 'text-gray-500'}`}
+                        >
+                          Bs.
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDiscountType('PERCENT')}
+                          className={`px-1.5 py-0.5 rounded-md cursor-pointer ${discountType === 'PERCENT' ? 'bg-white text-black shadow-xs' : 'text-gray-500'}`}
+                        >
+                          %
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1">
+                      <input
+                        type="number"
+                        min="0"
+                        step={discountType === 'PERCENT' ? '1' : '0.5'}
+                        max={discountType === 'PERCENT' ? '100' : String(subtotal)}
+                        value={discountValue || ''}
+                        onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-16 px-2 py-1 bg-white border border-gray-200 rounded-lg text-right font-mono font-bold text-xs focus:ring-1 focus:ring-black"
+                      />
+                      {discountAmount > 0 && (
+                        <span className="text-[11px] font-mono text-red-600 font-bold">
+                          (-Bs. {discountAmount.toLocaleString('es-ES')})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* GRAND TOTAL HIGH IMPACT BANNER */}
+                <div className="bg-[#111111] text-white p-3.5 rounded-2xl flex items-center justify-between shadow-lg border border-white/10">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#FACC15] block">
+                      TOTAL A COBRAR
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">Impuestos / Boleta incluida</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl sm:text-3xl font-black text-[#FACC15] font-mono tracking-tight">
+                      Bs. {total.toLocaleString('es-ES')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Payment Method Selector */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                    Método de Pago
+                  </span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {availablePaymentMethods.slice(0, 4).map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setPaymentMethod(method)}
+                        className={`py-2 px-1 text-center rounded-xl text-[10px] font-black tracking-tight transition-all cursor-pointer border ${
+                          paymentMethod === method
+                            ? 'bg-black text-[#FACC15] border-black shadow-xs scale-[1.02]'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cash Tender & Change Calculator (Only if Efectivo) */}
+                {paymentMethod === 'Efectivo' && (
+                  <div className="p-2.5 bg-white rounded-2xl border border-gray-200 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-gray-700">Monto Recibido:</span>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-gray-400 font-bold">Bs.</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder={String(total)}
+                          value={cashTendered}
+                          onChange={(e) => setCashTendered(e.target.value)}
+                          className="w-24 px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-right font-mono font-black text-xs focus:ring-1 focus:ring-black"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Bill presets */}
+                    <div className="flex items-center justify-between gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setCashTendered(String(total))}
+                        className="flex-1 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] font-bold rounded-lg cursor-pointer"
+                      >
+                        Exacto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCashTendered(String(Math.ceil(total / 50) * 50 || 50))}
+                        className="flex-1 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] font-bold rounded-lg cursor-pointer"
+                      >
+                        +Bs. 50
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCashTendered(String(Math.ceil(total / 100) * 100 || 100))}
+                        className="flex-1 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] font-bold rounded-lg cursor-pointer"
+                      >
+                        +Bs. 100
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCashTendered(String(Math.ceil(total / 200) * 200 || 200))}
+                        className="flex-1 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] font-bold rounded-lg cursor-pointer"
+                      >
+                        +Bs. 200
+                      </button>
+                    </div>
+
+                    {/* Change due calculation */}
+                    {parseFloat(cashTendered) >= total && (
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-150 text-xs font-black">
+                        <span className="text-emerald-700">Cambio a Devolver:</span>
+                        <span className="font-mono text-emerald-600 text-sm">
+                          Bs. {changeDue.toLocaleString('es-ES')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Primary Checkout CTA */}
+                <button
+                  type="button"
+                  id="pos-checkout-btn"
+                  onClick={handleCompleteSale}
+                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.99] text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-950/20 transition-all flex items-center justify-center space-x-2 cursor-pointer border border-emerald-400/30"
+                >
+                  <DollarSign className="w-5 h-5 text-white" />
+                  <span>PROCESAR VENTA · Bs. {total.toLocaleString('es-ES')}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+      {/* ======================================================== */}
+      {/* 3. MODAL: AGREGAR PRODUCTO DEL INVENTARIO                 */}
+      {/* ======================================================== */}
+      {isInventoryModalOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 select-none animate-fade-in">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-gray-150 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 bg-[#111111] text-white flex items-center justify-between shrink-0 border-b border-white/10">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FACC15] text-black flex items-center justify-center font-black">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-tight">
+                    Catálogo de Inventario para Venta
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Selecciona repuestos o accesorios para sumar al carrito POS
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsInventoryModalOpen(false)}
+                className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="p-4 bg-gray-50 border-b border-gray-200 shrink-0 space-y-3">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Buscar por código, nombre, código de barra o marca..."
+                    value={inventorySearch}
+                    onChange={(e) => setInventorySearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                  />
+                </div>
+
+                <label className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-200 rounded-2xl text-xs font-bold text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={onlyInStock}
+                    onChange={(e) => setOnlyInStock(e.target.checked)}
+                    className="rounded text-black focus:ring-0 cursor-pointer"
+                  />
+                  <span>Solo con Stock</span>
+                </label>
+              </div>
+
+              {/* Categories */}
               <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-thin">
                 {categories.map((cat) => (
                   <button
                     key={cat}
-                    onClick={() => {
-                      setSelectedCategory(cat);
-                      setSelectedType('PRODUCTS');
-                    }}
-                    className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all border cursor-pointer ${
-                      selectedCategory === cat && selectedType === 'PRODUCTS'
+                    type="button"
+                    onClick={() => setInventoryCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold whitespace-nowrap transition-all border cursor-pointer ${
+                      inventoryCategory === cat
                         ? 'bg-black text-[#FACC15] border-black shadow-xs'
-                        : 'bg-gray-50 text-gray-600 border-gray-150 hover:bg-gray-100'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
                     }`}
                   >
                     {cat}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* GRID OF PRODUCTS / SERVICES */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 max-h-[580px] overflow-y-auto pr-1">
-            {/* Products Listing */}
-            {selectedType !== 'SERVICES' && filteredProducts.map((prod) => (
-              <button
-                key={prod.id}
-                onClick={() => addToCart({ id: prod.id, name: prod.name, price: prod.salePrice, type: 'PRODUCT', stock: prod.stock })}
-                className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs hover:shadow-xs hover:border-gray-300 transition-all text-left flex flex-col justify-between group cursor-pointer relative overflow-hidden"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-start gap-1">
-                    <span className="text-[8px] font-black uppercase tracking-wider text-[#FACC15] bg-black px-1.5 py-0.5 rounded">
-                      {prod.category}
-                    </span>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded font-mono ${
-                      prod.stock <= 0 
-                        ? 'bg-red-50 text-red-600 border border-red-100' 
-                        : prod.stock <= prod.minStock 
-                        ? 'bg-amber-50 text-amber-600 border border-amber-100' 
-                        : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                    }`}>
-                      {prod.stock <= 0 ? 'AGOTADO' : `Stock: ${prod.stock}`}
-                    </span>
-                  </div>
-                  
-                  <h3 className="text-xs font-extrabold text-gray-800 line-clamp-2 leading-snug group-hover:text-black transition-colors">
-                    {prod.name}
-                  </h3>
-                  
-                  <p className="text-[10px] text-gray-400 font-mono">
-                    Cód: {prod.code}
-                  </p>
-                  
-                  {prod.compatibleModel && (
-                    <p className="text-[9px] text-gray-500 font-medium">
-                      Comp: <span className="font-bold text-gray-700">{prod.compatibleModel}</span>
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex justify-between items-end border-t border-gray-100 pt-2.5 mt-3">
-                  <div>
-                    <span className="text-[8px] text-gray-400 block font-bold uppercase">Precio</span>
-                    <span className="text-sm font-black text-gray-900 font-mono">
-                      Bs. {prod.salePrice.toLocaleString('es-ES')}
-                    </span>
-                  </div>
-                  <div className="w-7 h-7 bg-gray-50 border border-gray-150 rounded-lg flex items-center justify-center text-gray-600 group-hover:bg-black group-hover:text-[#FACC15] group-hover:border-black transition-all">
-                    <Plus className="w-4 h-4" />
-                  </div>
-                </div>
-              </button>
-            ))}
-
-            {/* Services Listing */}
-            {selectedType !== 'PRODUCTS' && filteredServices.map((srv) => (
-              <button
-                key={srv.id}
-                onClick={() => addToCart({ id: srv.id, name: srv.name, price: srv.price, type: 'SERVICE' })}
-                className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs hover:shadow-xs hover:border-gray-300 transition-all text-left flex flex-col justify-between group cursor-pointer relative overflow-hidden"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[8px] font-black uppercase tracking-wider text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
-                      Servicio Técnico
-                    </span>
-                    <span className="text-[8px] font-black text-gray-400 uppercase">Frecuente</span>
-                  </div>
-                  
-                  <h3 className="text-xs font-extrabold text-gray-800 line-clamp-2 leading-snug group-hover:text-black transition-colors">
-                    {srv.name}
-                  </h3>
-                  
-                  <p className="text-[9px] text-gray-400 font-medium italic">
-                    Servicio express inmediato en mesón
-                  </p>
-                </div>
-
-                <div className="flex justify-between items-end border-t border-gray-100 pt-2.5 mt-3">
-                  <div>
-                    <span className="text-[8px] text-gray-400 block font-bold uppercase">Costo</span>
-                    <span className="text-sm font-black text-purple-900 font-mono">
-                      Bs. {srv.price.toLocaleString('es-ES')}
-                    </span>
-                  </div>
-                  <div className="w-7 h-7 bg-gray-50 border border-gray-150 rounded-lg flex items-center justify-center text-gray-600 group-hover:bg-black group-hover:text-[#FACC15] group-hover:border-black transition-all">
-                    <Plus className="w-4 h-4" />
-                  </div>
-                </div>
-              </button>
-            ))}
-
-            {/* Empty States */}
-            {selectedType !== 'SERVICES' && filteredProducts.length === 0 && (
-              <div className="col-span-full py-12 text-center bg-white border border-gray-150 rounded-2xl">
-                <ShoppingBag className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-gray-400">No se encontraron productos que coincidan.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: POINT OF SALE CART & BILLING DETAILS (4-5 cols) */}
-        <div className="lg:col-span-5 xl:col-span-4 space-y-4">
-          <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4 flex flex-col justify-between">
-            {/* Cart Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-gray-150">
-              <div className="flex items-center space-x-2">
-                <ShoppingBag className="w-4.5 h-4.5 text-black" />
-                <h2 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider">Detalle del Carrito</h2>
-              </div>
-              <span className="text-[10px] font-extrabold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-                {cart.reduce((sum, i) => sum + i.quantity, 0)} Items
-              </span>
             </div>
 
-            {/* Cart Items List */}
-            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-              {cart.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 italic space-y-1">
-                  <ShoppingBag className="w-7 h-7 mx-auto text-gray-300" />
-                  <p className="text-[10px] font-bold">El carrito de compras está vacío.</p>
-                  <p className="text-[9px]">Haga clic en un producto o servicio del catálogo de la izquierda para agregarlo.</p>
+            {/* Product Table / Cards list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 max-h-[500px]">
+              {filteredInventoryProducts.length === 0 ? (
+                <div className="p-10 text-center space-y-2 text-gray-400">
+                  <Package className="w-10 h-10 mx-auto text-gray-300" />
+                  <p className="text-xs font-bold text-gray-600">No se encontraron productos coincidentes.</p>
+                  <p className="text-[11px] text-gray-400">Prueba ajustando el término de búsqueda o filtros.</p>
                 </div>
               ) : (
-                cart.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-gray-50/50 p-2.5 rounded-xl border border-gray-150 shadow-2xs">
-                    <div className="flex-1 min-w-0 pr-2">
-                      <span className={`text-[8px] font-extrabold px-1 py-0.2 rounded uppercase ${
-                        item.type === 'PRODUCT' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
-                      }`}>
-                        {item.type === 'PRODUCT' ? 'Repuesto' : 'Servicio'}
-                      </span>
-                      <h4 className="text-xs font-extrabold text-gray-800 truncate mt-0.5 leading-snug" title={item.name}>
-                        {item.name}
-                      </h4>
-                      <p className="text-[10px] font-bold text-gray-500 font-mono">
-                        Bs. {item.price.toLocaleString('es-ES')} c/u
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredInventoryProducts.map((prod) => {
+                    const inCartCount = cart.find(c => c.type === 'PRODUCT' && c.referenceId === prod.id)?.quantity || 0;
+                    const isOutOfStock = prod.stock <= 0;
 
-                    <div className="flex items-center space-x-2.5">
-                      {/* Quantity Controls */}
-                      <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => updateCartQuantity(idx, -1)}
-                          className="px-1.5 py-1 text-gray-500 hover:bg-gray-100 transition-colors"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="px-2 text-xs font-extrabold text-gray-900 font-mono">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateCartQuantity(idx, 1)}
-                          className="px-1.5 py-1 text-gray-500 hover:bg-gray-100 transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-
-                      {/* Line Item Total */}
-                      <div className="text-right min-w-[60px]">
-                        <span className="text-xs font-black text-gray-900 font-mono">
-                          Bs. {(item.price * item.quantity).toLocaleString('es-ES')}
-                        </span>
-                      </div>
-
-                      {/* Trash Button */}
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(idx)}
-                        className="text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
-                        title="Quitar item"
+                    return (
+                      <div
+                        key={prod.id}
+                        className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                          isOutOfStock && !workshopSettings.allowNegativeStock
+                            ? 'bg-gray-50 border-gray-200 opacity-60'
+                            : inCartCount > 0
+                            ? 'bg-yellow-50/30 border-black shadow-xs'
+                            : 'bg-white border-gray-200 hover:border-gray-300'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="font-mono font-bold text-gray-500">{prod.code}</span>
+                            <span className={`px-2 py-0.5 rounded-md font-extrabold text-[9px] ${
+                              prod.stock > 5 ? 'bg-emerald-50 text-emerald-700' : prod.stock > 0 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'
+                            }`}>
+                              {prod.stock > 0 ? `${prod.stock} disponibles` : 'Agotado'}
+                            </span>
+                          </div>
+
+                          <h4 className="text-xs font-black text-gray-900 leading-tight">
+                            {prod.name}
+                          </h4>
+
+                          <p className="text-[10px] text-gray-400 truncate">
+                            {prod.category} {prod.brand ? `· ${prod.brand}` : ''} {prod.compatibleModel ? `· ${prod.compatibleModel}` : ''}
+                          </p>
+                        </div>
+
+                        <div className="pt-3 mt-2 border-t border-gray-100 flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] text-gray-400 block font-medium">Precio Venta</span>
+                            <span className="font-mono text-sm font-black text-gray-900">
+                              Bs. {prod.salePrice.toLocaleString('es-ES')}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isOutOfStock && !workshopSettings.allowNegativeStock}
+                            onClick={() => addToCart({
+                              id: prod.id,
+                              name: prod.name,
+                              price: prod.salePrice,
+                              type: 'PRODUCT',
+                              stock: prod.stock,
+                              category: prod.category,
+                              sku: prod.code
+                            })}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center space-x-1 transition-all cursor-pointer ${
+                              inCartCount > 0
+                                ? 'bg-black text-[#FACC15] hover:bg-gray-800'
+                                : 'bg-[#FACC15] text-black hover:bg-yellow-400'
+                            } disabled:opacity-40 disabled:cursor-not-allowed`}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>{inCartCount > 0 ? `Agregar (+${inCartCount})` : 'Agregar'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
-            {/* BILLING SECTION: CLIENT AUTOCOMPLETE & ACCOUNTS */}
-            <div className="space-y-3 pt-3 border-t border-gray-150">
-              {/* Selected Client Overview / Search */}
-              <div className="space-y-1.5 relative">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block">Facturar a Nombre de:</label>
-                  <button
-                    type="button"
-                    onClick={() => setIsClientModalOpen(true)}
-                    className="text-[10px] font-bold text-yellow-600 hover:text-yellow-700 flex items-center gap-1 cursor-pointer"
-                  >
-                    <PlusCircle className="w-3 h-3" />
-                    <span>+ Registrar Cliente</span>
-                  </button>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Buscar cliente registrado..."
-                    value={clientSearch}
-                    onChange={(e) => {
-                      setClientSearch(e.target.value);
-                      setIsClientDropdownOpen(true);
-                      // Clear selection if typing
-                      if (selectedClient && e.target.value !== selectedClient.name) {
-                        setSelectedClient(null);
-                      }
-                    }}
-                    onFocus={() => setIsClientDropdownOpen(true)}
-                    className="block w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#FACC15] transition-all"
-                  />
-                  {clientSearch && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setClientSearch('');
-                        setSelectedClient(null);
-                        setIsClientDropdownOpen(true);
-                      }}
-                      className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 font-bold text-xs"
-                    >
-                      ×
-                    </button>
-                  )}
-
-                  {/* Combobox Dropdown */}
-                  {isClientDropdownOpen && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-10" 
-                        onClick={() => setIsClientDropdownOpen(false)}
-                      ></div>
-                      <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-20 divide-y divide-gray-50 font-sans">
-                        {filteredClientsForDropdown.map((c) => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedClient(c);
-                              setClientSearch(c.name);
-                              setIsClientDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-4 py-2 text-xs flex justify-between items-center transition-colors ${
-                              selectedClient?.id === c.id 
-                                ? 'bg-[#FACC15]/10 font-bold' 
-                                : 'hover:bg-gray-50'
-                            }`}
-                          >
-                            <div>
-                              <p className="font-extrabold text-gray-800 flex items-center gap-1">
-                                {c.id === 'client-publico-general' && <span className="text-[8px] bg-black text-[#FACC15] px-1 py-0.2 rounded font-sans mr-1">FIJADO</span>}
-                                {c.name}
-                              </p>
-                              <p className="text-[10px] text-gray-500 font-medium">Telf: {c.phone}</p>
-                            </div>
-                            <span className="text-[9px] text-gray-400 font-mono uppercase">{c.id.substring(0, 8)}</span>
-                          </button>
-                        ))}
-                        {filteredClientsForDropdown.length === 0 && (
-                          <p className="p-3 text-xs text-gray-400 italic text-center">No se encontraron coincidencias.</p>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Payment Method Selector */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block">Método de Pago</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <CreditCard className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="block w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FACC15] transition-all cursor-pointer"
-                  >
-                    {availablePaymentMethods.map(method => (
-                      <option key={method} value={method}>{method}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* BILLING TOTALS */}
-            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-150 space-y-2 mt-4">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500 font-semibold">Subtotal:</span>
-                <span className="font-bold text-gray-800 font-mono">
-                  {workshopSettings.currencySymbol || 'Bs.'} {subtotal.toLocaleString('es-ES')}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500 font-semibold flex items-center gap-1">
-                  <Tag className="w-3.5 h-3.5 text-gray-400" />
-                  <span>Descuento Especial ({workshopSettings.currencySymbol || 'Bs.'}):</span>
-                </span>
-                {workshopSettings.allowDiscounts ? (
-                  <div className="flex items-center space-x-1">
-                    <input
-                      id="sale-discount-input"
-                      type="number"
-                      min="0"
-                      max={workshopSettings.maxDiscountPercentage > 0 ? (subtotal * workshopSettings.maxDiscountPercentage) / 100 : subtotal}
-                      placeholder="0"
-                      value={discount || ''}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        const maxVal = workshopSettings.maxDiscountPercentage > 0
-                          ? (subtotal * workshopSettings.maxDiscountPercentage) / 100
-                          : subtotal;
-                        setDiscount(Math.min(maxVal, Math.max(0, val)));
-                      }}
-                      className="w-20 px-2 py-1 bg-white border border-gray-200 rounded-lg text-right text-xs font-bold font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
-                    />
-                    {workshopSettings.maxDiscountPercentage > 0 && (
-                      <span className="text-[9px] text-gray-400 font-mono">máx {workshopSettings.maxDiscountPercentage}%</span>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-[10px] text-gray-400 italic">Deshabilitado</span>
-                )}
-              </div>
-
-              <div className="flex justify-between items-center border-t border-gray-200 pt-2.5 mt-2.5">
-                <span className="text-xs font-black text-gray-900 uppercase">Total a Pagar:</span>
-                <span className="text-lg font-black text-emerald-700 font-mono">
-                  {workshopSettings.currencySymbol || 'Bs.'} {total.toLocaleString('es-ES')}
-                </span>
-              </div>
-            </div>
-
-            {/* ACTION BUTTON */}
-            <button
-              id="complete-sale-btn"
-              type="button"
-              onClick={handleCompleteSale}
-              disabled={cart.length === 0 || !selectedClient}
-              className="w-full mt-4 bg-black hover:bg-gray-900 text-[#FACC15] disabled:bg-gray-200 disabled:text-gray-400 py-3.5 px-4 rounded-xl font-bold flex items-center justify-center space-x-2 transition-all shadow-md text-sm disabled:shadow-none cursor-pointer"
-            >
-              <CheckCircle className="w-4.5 h-4.5" />
-              <span>REGISTRAR Y EMITIR COMPROBANTE</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* QUICK CLIENT REGISTRATION MODAL */}
-      {isClientModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity" onClick={() => setIsClientModalOpen(false)}></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 z-10 p-6 animate-scale-up text-gray-900">
-            <div className="flex justify-between items-center pb-4 border-b border-gray-100">
-              <h3 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
-                <User className="w-5 h-5 text-yellow-500" />
-                <span>Registrar Nuevo Cliente</span>
-              </h3>
-              <button onClick={() => setIsClientModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
-                <X className="w-5 h-5" />
+            {/* Modal Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0 flex items-center justify-between">
+              <span className="text-xs text-gray-500 font-medium">
+                Mostrando {filteredInventoryProducts.length} productos
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsInventoryModalOpen(false)}
+                className="px-5 py-2.5 bg-black text-[#FACC15] font-black text-xs rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                Listo / Volver al Carrito
               </button>
             </div>
-            
-            <form onSubmit={handleQuickClientSubmit} className="mt-4 space-y-4">
-              <div className="space-y-1.5 relative">
-                <label className="text-xs font-bold text-gray-700 block">Nombre Completo *</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    placeholder="Ej. Andrés Cáceres Lozada"
-                    value={newClientName}
-                    onChange={(e) => {
-                      setNewClientName(e.target.value);
-                      setShowSalesSuggestions(true);
-                    }}
-                    onFocus={() => setShowSalesSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSalesSuggestions(false), 200)}
-                    autoComplete="off"
-                    className="block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15] transition-all font-semibold"
-                  />
+          </div>
+        </div>
+      )}
 
-                  {/* Historial desplegable deslizado abajito de la línea - Solo muestra el nombre */}
-                  {showSalesSuggestions && newClientName.trim().length >= 2 && matchingSalesClients.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-gray-100 max-h-48 overflow-y-auto">
-                      {matchingSalesClients.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleSelectExistingFromSalesModal(c);
-                          }}
-                          className="w-full text-left px-4 py-2.5 hover:bg-yellow-50 active:bg-yellow-100 text-xs font-semibold text-gray-800 transition-colors cursor-pointer flex items-center justify-between group"
-                        >
-                          <span className="truncate text-gray-900 group-hover:text-black">
-                            {c.name}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+      {/* ======================================================== */}
+      {/* 4. MODAL: AGREGAR CONCEPTO LIBRE / SERVICIO MANUAL       */}
+      {/* ======================================================== */}
+      {isCustomItemModalOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fade-in h-screen w-screen">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-150 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="text-sm font-black text-gray-900 uppercase">
+                Agregar Concepto Libre / Servicio
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCustomItemModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-black rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 block">Número de Celular *</label>
+            <form onSubmit={handleAddCustomItem} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">Descripción o Concepto *</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ej. 70912345"
-                  value={newClientPhone}
-                  onChange={(e) => setNewClientPhone(e.target.value)}
-                  className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15] transition-all font-semibold font-mono"
+                  placeholder="Ej. Cambio de cristal templado, Desbloqueo de cuenta, etc."
+                  value={customItemName}
+                  onChange={(e) => setCustomItemName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-black"
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">Precio (Bs.) *</label>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.5"
+                  required
+                  placeholder="0.00"
+                  value={customItemPrice}
+                  onChange={(e) => setCustomItemPrice(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold font-mono focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">Categoría</label>
+                <select
+                  value={customItemCategory}
+                  onChange={(e) => setCustomItemCategory(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold"
+                >
+                  <option value="Servicio">Servicio Técnico</option>
+                  <option value="Accesorio">Accesorio</option>
+                  <option value="Repuesto">Repuesto Especial</option>
+                  <option value="Mano de Obra">Mano de Obra</option>
+                </select>
+              </div>
+
+              <div className="pt-2 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsClientModalOpen(false)}
-                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-all text-xs"
+                  onClick={() => setIsCustomItemModalOpen(false)}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-200 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-black hover:bg-gray-800 text-[#FACC15] rounded-xl font-bold transition-all text-xs"
+                  className="flex-1 py-2.5 bg-black text-[#FACC15] font-black text-xs rounded-xl hover:bg-gray-800 cursor-pointer"
                 >
-                  Crear e Inserir
+                  Agregar al Carrito
                 </button>
               </div>
             </form>
@@ -895,58 +1270,191 @@ export default function SalesView({ currentUser }: SalesViewProps) {
         </div>
       )}
 
-      {/* SALES COMPLETED TICKET OVERLAY */}
-      {completedSale && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in text-[#111111]">
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-150 p-6 flex flex-col justify-between max-h-[90vh]">
-            {/* Action panel at the top (hidden during print) */}
-            <div className="flex justify-between items-center pb-3 border-b border-gray-150 mb-4 print:hidden">
-              <span className="text-xs font-black text-gray-700 flex items-center gap-1">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                <span>Venta Registrada Exitosamente</span>
-              </span>
+      {/* ======================================================== */}
+      {/* 5. MODAL: REGISTRO RÁPIDO DE CLIENTE                      */}
+      {/* ======================================================== */}
+      {isClientModalOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fade-in h-screen w-screen">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-150 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="text-sm font-black text-gray-900 uppercase">
+                Registrar Nuevo Cliente
+              </h3>
               <button
-                id="close-ticket-btn"
-                onClick={() => setCompletedSale(null)}
-                className="text-gray-400 hover:text-black transition-colors p-1 bg-gray-100 rounded-full"
-                title="Cerrar ticket"
+                type="button"
+                onClick={() => setIsClientModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-black rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* PRINT CONTAINER START */}
+            <form onSubmit={handleQuickClientSubmit} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">Nombre Completo *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Roberto Gómez"
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700">Número de Celular *</label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="Ej. 70912345"
+                  value={newClientPhone}
+                  onChange={(e) => setNewClientPhone(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsClientModalOpen(false)}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-200 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-black text-[#FACC15] font-black text-xs rounded-xl hover:bg-gray-800 cursor-pointer"
+                >
+                  Guardar y Asignar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 6. MODAL: HISTORIAL DE VENTAS DEL DÍA                     */}
+      {/* ======================================================== */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 select-none animate-fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-150 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 bg-[#111111] text-white flex items-center justify-between shrink-0 border-b border-white/10">
+              <div className="flex items-center space-x-2.5">
+                <History className="w-5 h-5 text-[#FACC15]" />
+                <h3 className="text-sm font-black uppercase text-white">
+                  Historial de Ventas / Caja ({recentSales.length})
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-white rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+              {recentSales.length === 0 ? (
+                <p className="text-center py-8 text-xs text-gray-400 font-bold">No se registran ventas previas.</p>
+              ) : (
+                recentSales.map((sale) => (
+                  <div
+                    key={sale.id}
+                    className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between hover:bg-white transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono font-black text-xs text-gray-900">{sale.saleNumber}</span>
+                        <span className="text-[10px] text-gray-400">• {new Date(sale.date).toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'})}</span>
+                        <span className="text-[10px] bg-black text-[#FACC15] px-1.5 py-0.2 rounded font-bold">{sale.paymentMethod}</span>
+                      </div>
+                      <p className="text-xs font-bold text-gray-700 truncate">{sale.clientName}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {sale.items.length} {sale.items.length === 1 ? 'artículo' : 'artículos'} · Atendido por {sale.user}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <span className="font-mono font-black text-sm text-gray-900">
+                        Bs. {sale.total.toLocaleString('es-ES')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCompletedSale(sale);
+                          setIsHistoryModalOpen(false);
+                        }}
+                        className="p-2 bg-black text-[#FACC15] rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
+                        title="Reimprimir Comprobante"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 7. COMPLETED SALE RECEIPT / TICKET OVERLAY               */}
+      {/* ======================================================== */}
+      {completedSale && (
+        <div className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in text-[#111111] select-none">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-150 p-6 flex flex-col justify-between max-h-[92vh]">
+            
+            {/* Header (hidden on print) */}
+            <div className="flex justify-between items-center pb-3 border-b border-gray-150 mb-4 print:hidden">
+              <span className="text-xs font-black text-gray-800 flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span>Venta Procesada Exitosamente</span>
+              </span>
+              <button
+                type="button"
+                id="close-ticket-btn"
+                onClick={() => setCompletedSale(null)}
+                className="text-gray-400 hover:text-black transition-colors p-1 bg-gray-100 rounded-full cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Print Container: 80mm Thermal Style */}
             <div id="printable-ticket" className="flex-1 overflow-y-auto space-y-4 font-mono text-xs pr-1">
-              {/* Receipt Header */}
               <div className="text-center space-y-1">
                 <div className="flex justify-center mb-1">
                   <BolFixLogo variant="icon" className="w-10 h-10 rounded-xl" />
                 </div>
-                <h3 className="text-base font-black tracking-tight text-center uppercase">
+                <h3 className="text-base font-black tracking-tight uppercase">
                   {mockDb.getSettings().workshopName || 'BOL.FIX'}
                 </h3>
                 <p className="text-[10px] font-bold text-gray-800 uppercase tracking-wide">
-                  {mockDb.getSettings().workshopSlogan || 'By: Mauro Medina'}
+                  {mockDb.getSettings().workshopSlogan || 'Servicio Técnico & POS'}
                 </p>
-                <p className="text-[9px] text-gray-400">
+                <p className="text-[9px] text-gray-500">
                   {mockDb.getSettings().phone || 'Telf: (+591) 78945612'}
                 </p>
-                <p className="text-[10px] text-gray-600 font-bold border-t border-dashed border-gray-300 pt-1.5 mt-1.5">
-                  COMPROBANTE DE COMPRA
+                <p className="text-[10px] text-gray-700 font-bold border-t border-dashed border-gray-300 pt-1.5 mt-1.5 uppercase">
+                  COMPROBANTE DE VENTA POS
                 </p>
-                <p className="text-[11px] font-black tracking-wide font-mono mt-0.5 text-center">
+                <p className="text-xs font-black tracking-wide font-mono mt-0.5">
                   N° {completedSale.saleNumber}
                 </p>
               </div>
 
-              {/* Receipt Details Block */}
-              <div className="space-y-1.5 text-[10px] border-t border-b border-dashed border-gray-300 py-2 font-mono">
+              {/* Details block */}
+              <div className="space-y-1 text-[10px] border-t border-b border-dashed border-gray-300 py-2">
                 <div className="flex justify-between">
                   <span>Fecha:</span>
                   <span>{new Date(completedSale.date).toLocaleDateString('es-ES')} {new Date(completedSale.date).toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Atendido por:</span>
+                  <span>Cajero:</span>
                   <span>{completedSale.user}</span>
                 </div>
                 <div className="flex justify-between">
@@ -955,32 +1463,41 @@ export default function SalesView({ currentUser }: SalesViewProps) {
                 </div>
                 <div className="flex justify-between">
                   <span>Telf:</span>
-                  <span>{completedSale.clientPhone}</span>
+                  <span>{completedSale.clientPhone || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Método de Pago:</span>
+                  <span>Método:</span>
                   <span className="font-bold">{completedSale.paymentMethod}</span>
                 </div>
               </div>
 
-              {/* Receipt Items list */}
-              <div className="space-y-1 text-[10px] font-mono">
-                <div className="flex justify-between font-bold border-b border-dashed border-gray-200 pb-1 mb-1">
+              {/* Items */}
+              <div className="space-y-1.5 text-[10px]">
+                <div className="flex justify-between font-bold border-b border-dashed border-gray-300 pb-1">
                   <span className="w-1/2">Descripción</span>
                   <span className="w-1/6 text-center">Cant</span>
-                  <span className="w-1/3 text-right">Monto</span>
+                  <span className="w-1/3 text-right">Total</span>
                 </div>
-                {completedSale.items.map((item, index) => (
-                  <div key={index} className="flex justify-between text-[9px] leading-relaxed">
-                    <span className="w-1/2 truncate font-sans">{item.name}</span>
-                    <span className="w-1/6 text-center font-mono">{item.quantity}</span>
-                    <span className="w-1/3 text-right font-mono">Bs. {(item.price * item.quantity).toLocaleString('es-ES')}</span>
+                {completedSale.items.map((item, idx) => (
+                  <div key={idx} className="space-y-0.5 border-b border-dashed border-gray-100 pb-1">
+                    <div className="flex justify-between leading-tight">
+                      <span className="w-1/2 font-sans font-bold truncate">{item.name}</span>
+                      <span className="w-1/6 text-center font-mono">{item.quantity}</span>
+                      <span className="w-1/3 text-right font-mono font-bold">
+                        Bs. {(item.price * item.quantity).toLocaleString('es-ES')}
+                      </span>
+                    </div>
+                    {item.orderOt && (
+                      <p className="text-[8px] text-gray-500 font-sans">
+                        OT #{item.orderOt} · {item.orderEquipment}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
 
-              {/* Receipt Totals */}
-              <div className="border-t border-dashed border-gray-300 pt-2 mt-2 space-y-1 text-[10px] font-mono">
+              {/* Totals */}
+              <div className="border-t border-dashed border-gray-300 pt-2 space-y-1 text-[10px]">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
                   <span>Bs. {completedSale.subtotal.toLocaleString('es-ES')}</span>
@@ -991,43 +1508,66 @@ export default function SalesView({ currentUser }: SalesViewProps) {
                     <span>-Bs. {completedSale.discount.toLocaleString('es-ES')}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-black text-xs border-t border-dashed border-gray-200 pt-1.5 mt-1">
+                <div className="flex justify-between font-black text-sm border-t border-dashed border-gray-300 pt-1.5 mt-1">
                   <span>TOTAL PAGADO:</span>
                   <span>Bs. {completedSale.total.toLocaleString('es-ES')}</span>
                 </div>
               </div>
 
-              {/* Receipt Footer */}
-              <div className="text-center pt-4 border-t border-dashed border-gray-300 space-y-1">
-                <p className="text-[8px] uppercase font-bold text-gray-500">¡Gracias por su Preferencia!</p>
-                <p className="text-[7px] text-gray-400">Garantía válida según términos comerciales.</p>
-                <p className="text-[7px] text-gray-400 font-sans">Sistema desarrollado por Arq. Software</p>
+              {/* Footer */}
+              <div className="text-center pt-3 border-t border-dashed border-gray-300 space-y-1">
+                <p className="text-[8px] uppercase font-bold text-gray-600">¡Muchas Gracias por su Preferencia!</p>
+                <p className="text-[7px] text-gray-400">Conserve este comprobante para cualquier garantía.</p>
               </div>
             </div>
-            {/* PRINT CONTAINER END */}
 
-            {/* Actions overlay buttons (hidden during print) */}
-            <div className="flex gap-3 pt-4 border-t border-gray-150 mt-4 print:hidden">
+            {/* Actions (hidden on print) */}
+            <div className="flex flex-col gap-2 pt-4 border-t border-gray-150 mt-3 print:hidden">
               <button
+                type="button"
                 id="print-thermal-btn"
                 onClick={() => window.print()}
-                className="flex-1 py-3 bg-black hover:bg-gray-900 text-[#FACC15] rounded-xl font-bold flex items-center justify-center space-x-1.5 text-xs cursor-pointer"
+                className="w-full py-3 bg-black hover:bg-gray-800 text-[#FACC15] rounded-xl font-black flex items-center justify-center space-x-2 text-xs cursor-pointer shadow-md"
               >
-                <Printer className="w-4 h-4" />
-                <span>Imprimir Ticket</span>
+                <Printer className="w-4 h-4 text-[#FACC15]" />
+                <span>Imprimir Ticket (Térmica 80mm)</span>
               </button>
-              
+
+              {completedSale.clientPhone && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cleanPhone = completedSale.clientPhone.replace(/\D/g, '');
+                    const text = encodeURIComponent(
+                      `*COMPROBANTE DE VENTA POS - ${workshopSettings.workshopName || 'BOL.FIX'}*\n` +
+                      `Comprobante N°: ${completedSale.saleNumber}\n` +
+                      `Cliente: ${completedSale.clientName}\n` +
+                      `Total Pagado: Bs. ${completedSale.total}\n` +
+                      `Método: ${completedSale.paymentMethod}\n\n` +
+                      `¡Gracias por su compra!`
+                    );
+                    window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank');
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center space-x-1.5 text-xs cursor-pointer shadow-xs"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Enviar Recibo por WhatsApp</span>
+                </button>
+              )}
+
               <button
+                type="button"
                 id="close-ticket-action-btn"
                 onClick={() => setCompletedSale(null)}
-                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs cursor-pointer text-center"
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs cursor-pointer text-center"
               >
-                Nueva Venta
+                Nueva Venta / Cerrar
               </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

@@ -182,13 +182,21 @@ export interface InventoryMovement {
 export type SaleItemType = 'PRODUCT' | 'SERVICE';
 
 export interface SaleItem {
-  id: string;
+  id?: string;
   type: SaleItemType;
-  referenceId?: string; // Product ID if type === 'PRODUCT'
+  referenceId?: string; // Product ID if type === 'PRODUCT' or Order ID if type === 'SERVICE'
   name: string;
   quantity: number;
   price: number;
-  subtotal: number;
+  subtotal?: number;
+  details?: string;
+  category?: string;
+  sku?: string;
+  // Specific details for paid service orders
+  orderOt?: string;
+  orderEquipment?: string;
+  orderIssue?: string;
+  orderTechnician?: string;
 }
 
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'QR' | 'Tarjeta' | 'Mixto';

@@ -90,7 +90,9 @@ aside::-webkit-scrollbar-thumb:hover {
     display: none !important;
   }
   .thermal-receipt-view,
-  .thermal-receipt-view * {
+  .thermal-receipt-view *,
+  #printable-ticket-card,
+  #printable-ticket-card * {
     color: #000000 !important;
     border-color: #000000 !important;
     -webkit-print-color-adjust: exact !important;

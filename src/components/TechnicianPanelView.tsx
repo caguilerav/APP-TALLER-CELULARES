@@ -682,7 +682,7 @@ export default function TechnicianPanelView({
                           {order.brand} {order.model}
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg} ${badge.text}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg}`}>
                             {badge.label}
                           </span>
                         </td>

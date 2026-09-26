@@ -22,7 +22,7 @@ import {
   Printer,
   Settings
 } from 'lucide-react';
-import { User, Sale, WorkshopSettings } from './types';
+import { User, Sale, WorkshopSettings, Order, SaleItem } from './types';
 import LoginView from './components/LoginView';
 import DashboardView from './components/DashboardView';
 import ReceptionView from './components/ReceptionView';
@@ -43,6 +43,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard'); // 'dashboard', 'recepcion', 'reparaciones', 'inventario', 'ventas', 'reportes'
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [initialPrintView, setInitialPrintView] = useState<boolean>(false);
   const [listFilter, setListFilter] = useState<string>('ALL');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [selectedSaleForTicket, setSelectedSaleForTicket] = useState<Sale | null>(null);
@@ -52,6 +53,46 @@ export default function App() {
 
   // A simple counter to trigger state re-fetching in list view when operations occur
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+
+  // POS Prefill state for redirected service orders
+  const [posPrefillSale, setPosPrefillSale] = useState<{
+    item: SaleItem;
+    client?: { id?: string; name: string; phone: string };
+    paymentMethod?: string;
+    notes?: string;
+  } | null>(null);
+
+  const handleNavigateToPosWithOrder = (order: Order, paymentInfo?: { amount: number; paymentMethod: string; notes?: string }) => {
+    setActiveOrderId(null);
+    setActiveTab('ventas');
+    const remaining = Math.max(0, order.estimatedCost - order.advancePayment);
+    const amountToCharge = paymentInfo ? paymentInfo.amount : (remaining > 0 ? remaining : order.estimatedCost);
+
+    setPosPrefillSale({
+      item: {
+        id: `srv-order-${order.id}-${Date.now()}`,
+        type: 'SERVICE',
+        referenceId: order.id,
+        name: `Servicio OT #${order.otNumber} - ${order.brand} ${order.model}`,
+        price: amountToCharge,
+        quantity: 1,
+        subtotal: amountToCharge,
+        orderOt: order.otNumber,
+        orderEquipment: `${order.brand} ${order.model}${order.color ? ` (${order.color})` : ''}`,
+        orderIssue: order.problem,
+        orderTechnician: order.assignedTechnicianName || 'Técnico Especialista',
+        category: 'Servicio Técnico',
+        details: `Falla: ${order.problem}`
+      },
+      client: {
+        id: order.clientId,
+        name: order.clientName,
+        phone: order.clientPhone
+      },
+      paymentMethod: paymentInfo?.paymentMethod || 'Efectivo',
+      notes: paymentInfo?.notes || `Liquidación de Orden de Servicio #${order.otNumber}`
+    });
+  };
 
   useEffect(() => {
     // Apply saved zoom level
@@ -140,9 +181,10 @@ export default function App() {
     setActiveOrderId(orderId);
   };
 
-  const handleOrderCreated = (orderId: string) => {
+  const handleOrderCreated = (orderId: string, openPrintView?: boolean) => {
     setRefreshTrigger(prev => prev + 1);
     setActiveOrderId(orderId);
+    setInitialPrintView(!!openPrintView);
   };
 
   const handleOrderUpdated = () => {
@@ -220,21 +262,6 @@ export default function App() {
               <span>Dashboard / Inicio</span>
             </button>
 
-            {(currentUser.role === 'ADMIN' || currentUser.role === 'RECEPTIONIST') && (
-              <button
-                id="desktop-tab-recepcion"
-                onClick={() => { setActiveTab('recepcion'); setActiveOrderId(null); }}
-                className={`w-full flex items-center space-x-3.5 py-3 px-4 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                  activeTab === 'recepcion' && !activeOrderId
-                    ? 'bg-[#FACC15] text-black shadow-md'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <PlusCircle className="w-4.5 h-4.5" />
-                <span>Recepción (Nueva OT)</span>
-              </button>
-            )}
-
             <button
               id="desktop-tab-reparaciones"
               onClick={() => { setActiveTab('reparaciones'); setActiveOrderId(null); setListFilter('ALL'); }}
@@ -297,7 +324,7 @@ export default function App() {
                 }`}
               >
                 <ShoppingBag className="w-4.5 h-4.5" />
-                <span>Ventas / Caja</span>
+                <span>Punto de Venta (POS)</span>
               </button>
             )}
 
@@ -423,8 +450,13 @@ export default function App() {
           <OrderDetailView
             orderId={activeOrderId}
             currentUser={currentUser}
-            onBack={() => setActiveOrderId(null)}
+            onBack={() => {
+              setActiveOrderId(null);
+              setInitialPrintView(false);
+            }}
             onOrderUpdated={handleOrderUpdated}
+            initialPrintView={initialPrintView}
+            onNavigateToPosWithOrder={handleNavigateToPosWithOrder}
           />
         ) : (
           <>
@@ -465,7 +497,11 @@ export default function App() {
               <InventoryView currentUser={currentUser} />
             )}
             {activeTab === 'ventas' && (
-              <SalesView currentUser={currentUser} />
+              <SalesView 
+                currentUser={currentUser} 
+                posPrefillSale={posPrefillSale}
+                onClearPosPrefill={() => setPosPrefillSale(null)}
+              />
             )}
             {activeTab === 'reportes' && (
               <ReportsView />
@@ -498,21 +534,6 @@ export default function App() {
           <Home className="w-5 h-5" />
           <span className="text-[9px] mt-0.5">Inicio</span>
         </button>
-
-        {(currentUser.role === 'ADMIN' || currentUser.role === 'RECEPTIONIST') && (
-          <button
-            id="mobile-tab-recepcion"
-            onClick={() => { setActiveTab('recepcion'); setActiveOrderId(null); }}
-            className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'recepcion' && !activeOrderId
-                ? 'text-yellow-600 font-extrabold bg-[#FACC15]/10 px-2.5'
-                : 'text-gray-400 font-medium'
-            }`}
-          >
-            <PlusCircle className="w-5 h-5" />
-            <span className="text-[9px] mt-0.5">Recibir</span>
-          </button>
-        )}
 
         {/* Panel del Técnico for Mobile */}
         {(currentUser.role === 'TECHNICIAN' || currentUser.role === 'ADMIN') && (
@@ -567,7 +588,7 @@ export default function App() {
             }`}
           >
             <ShoppingBag className="w-5 h-5" />
-            <span className="text-[9px] mt-0.5">Vender</span>
+            <span className="text-[9px] mt-0.5">POS</span>
           </button>
         )}
 

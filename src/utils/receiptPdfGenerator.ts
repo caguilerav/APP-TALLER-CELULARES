@@ -4,12 +4,13 @@
  */
 
 import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
 import { Order, Payment, WorkshopSettings, User as SystemUser } from '../types';
 
 interface GenerateReceiptPdfParams {
   order: Order;
   activePayment?: Payment | null;
-  printFormat: 'letter' | 'thermal';
+  printFormat: 'letter' | 'thermal' | 'ticket';
   workshopSettings: WorkshopSettings;
   currentUser: SystemUser;
 }
@@ -31,13 +32,13 @@ const formatDateTime = (dateStr?: string | Date | null): string => {
   return `${dateFormatted} - ${timeFormatted} hrs`;
 };
 
-export function generateReceiptPdf({
+export async function generateReceiptPdf({
   order,
   activePayment,
   printFormat,
   workshopSettings,
   currentUser
-}: GenerateReceiptPdfParams): void {
+}: GenerateReceiptPdfParams): Promise<void> {
   const isPaymentReceipt = Boolean(activePayment);
   const remainingBalance = Math.max(0, order.estimatedCost - order.advancePayment);
   const shopName = workshopSettings.workshopName || 'BOL.FIX';
@@ -50,7 +51,61 @@ export function generateReceiptPdf({
   const receptionDateTime = formatDateTime(order.createdAt);
   const paymentDeliveryDateTime = formatDateTime(activePayment?.date || activePayment?.createdAt || new Date());
 
-  if (printFormat === 'thermal') {
+  if (printFormat === 'ticket') {
+    // ========================================================
+    // FORMATO TICKET CELULAR (PEGATINA TRASERA)
+    // ========================================================
+    const pdfWidth = 50;
+    const pdfHeight = 70;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [pdfWidth, pdfHeight]
+    });
+
+    const margin = 3;
+    let y = 6;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('TICKET CELULAR', pdfWidth / 2, y, { align: 'center' });
+    y += 6;
+
+    doc.setFontSize(8);
+    doc.text(`OT: ${order.otNumber}`, margin, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Cliente: ${order.clientName}`, margin, y, { maxWidth: pdfWidth - margin * 2 });
+    y += 5;
+    
+    doc.text(`Equipo: ${order.brand} ${order.model}`, margin, y, { maxWidth: pdfWidth - margin * 2 });
+    y += 5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Clave: ${order.lockValue || 'N/A'}`, margin, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Técnico: ${order.assignedTechnicianName || 'Pendiente'}`, margin, y);
+    y += 6;
+
+    // QR Code
+    try {
+      const orderUrl = `${window.location.origin}/order/${order.id}`;
+      const qrDataUrl = await QRCode.toDataURL(orderUrl, { margin: 1, scale: 4 });
+      doc.addImage(qrDataUrl, 'PNG', (pdfWidth - 25) / 2, y, 25, 25);
+    } catch (err) {
+      console.error('Error generating QR for PDF:', err);
+    }
+    
+    y += 28;
+
+    doc.setFontSize(6);
+    doc.text('Escanea para detalle completo', pdfWidth / 2, y, { align: 'center' });
+
+    doc.save(`Ticket_Celular_${order.otNumber}.pdf`);
+  } else if (printFormat === 'thermal') {
     // ========================================================
     // FORMATO TÉRMICO (80mm) - 100% NEGRO PURO (ALTA LEGIBILIDAD)
     // ========================================================
@@ -512,7 +567,8 @@ export function generateReceiptPdf({
       y += 5.5;
     };
 
-    renderFinanceRow('Costo Mano de Obra / Estimado:', `Bs. ${order.estimatedCost.toLocaleString('es-ES')}`);
+    renderFinanceRow('Costo Mano de Obra:', `Bs. ${(order.laborCost || 0).toLocaleString('es-ES')}`);
+    renderFinanceRow('Costo Total (Mano de Obra + Repuestos):', `Bs. ${order.estimatedCost.toLocaleString('es-ES')}`);
     renderFinanceRow('Total Cobrado / Abonado a la Fecha:', `-Bs. ${order.advancePayment.toLocaleString('es-ES')}`, true, true);
 
     doc.setDrawColor(17, 24, 39);
