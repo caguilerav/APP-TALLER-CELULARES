@@ -61,39 +61,50 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   };
 
   return (
-    <div id="login-container" className="min-h-screen bg-[#F9F9F9] flex flex-col justify-center items-center p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden relative">
+    <div id="login-container" className="min-h-screen bg-[#0D0D10] flex flex-col justify-center items-center p-4 relative overflow-hidden">
+      {/* Subtle geometric tech grid backdrop */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-25"
+        style={{
+          backgroundImage:
+            'radial-gradient(rgba(250, 204, 21, 0.22) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[480px] h-[240px] bg-[#FACC15]/10 blur-3xl rounded-full pointer-events-none" />
+
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.55)] border border-white/15 overflow-hidden relative z-10 animate-scale-up">
         
-        {/* Color accent bar at the top */}
-        <div className="h-2 bg-[#FACC15] w-full" />
+        {/* Precision top hardware accent bar */}
+        <div className="h-1.5 bg-[#FACC15] w-full" />
 
-        <div className="p-8">
-          {/* Brand Identity Header */}
-          <div className="text-center mb-6 flex flex-col items-center">
-            <div className="w-56 max-w-full drop-shadow-xl mb-1">
-              <BolFixLogo className="w-full h-auto" />
-            </div>
-            <p className="text-xs font-semibold text-gray-500 mt-1 uppercase tracking-wider">
-              Servicio Técnico Especializado & Gestión de Taller
-            </p>
+        {/* Dark Carbon Brand Header Strip */}
+        <div className="apk-dark-panel px-7 pt-7 pb-6 text-center flex flex-col items-center border-b border-white/10">
+          <div className="w-52 max-w-full drop-shadow-xl mb-1.5">
+            <BolFixLogo className="w-full h-auto" />
           </div>
+          <p className="font-display text-[11px] font-semibold text-gray-300 mt-1 uppercase tracking-[0.14em]">
+            Servicio Técnico Especializado & Gestión de Taller
+          </p>
+        </div>
 
+        <div className="p-6 sm:p-7 bg-white">
           {!showRecovery ? (
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleLogin} className="space-y-4">
               {error && (
-                <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-medium border border-red-100 animate-pulse">
+                <div className="p-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold border border-red-200">
                   {error}
                 </div>
               )}
 
               {/* Email Input */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block uppercase tracking-wider">
+                <label className="font-display text-[11px] font-bold text-gray-700 block uppercase tracking-wider">
                   Usuario (Email)
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
+                    <Mail className="h-4.5 w-4.5 text-gray-400" />
                   </span>
                   <input
                     id="email-input"
@@ -102,19 +113,19 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="correo@taller.com"
-                    className="block w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all"
+                    className="apk-input block w-full min-h-[46px] pl-11 pr-4 py-3 text-sm font-medium text-[#111111]"
                   />
                 </div>
               </div>
 
               {/* Password Input */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block uppercase tracking-wider">
+                <label className="font-display text-[11px] font-bold text-gray-700 block uppercase tracking-wider">
                   Contraseña
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
+                    <Lock className="h-4.5 w-4.5 text-gray-400" />
                   </span>
                   <input
                     id="password-input"
@@ -123,29 +134,29 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="block w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all"
+                    className="apk-input block w-full min-h-[46px] pl-11 pr-4 py-3 text-sm font-medium text-[#111111]"
                   />
                 </div>
               </div>
 
               {/* Secondary actions */}
               <div className="flex items-center justify-between text-xs font-medium pt-1">
-                <label className="flex items-center space-x-2 cursor-pointer select-none">
+                <label className="flex items-center space-x-2 cursor-pointer select-none min-h-[36px]">
                   <input
                     id="remember-me-checkbox"
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4.5 h-4.5 rounded border-gray-300 text-[#111111] focus:ring-[#FACC15] cursor-pointer"
+                    className="w-4.5 h-4.5 rounded border-gray-300 accent-[#111111] cursor-pointer"
                   />
-                  <span className="text-gray-600">Recordarme</span>
+                  <span className="text-gray-700 font-medium">Recordarme</span>
                 </label>
                 
                 <button
                   id="forgot-password-btn"
                   type="button"
                   onClick={() => setShowRecovery(true)}
-                  className="text-gray-500 hover:text-[#111111] transition-colors"
+                  className="text-gray-500 hover:text-[#111111] font-semibold transition-colors cursor-pointer"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
@@ -155,14 +166,14 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               <button
                 id="login-submit-btn"
                 type="submit"
-                className="w-full bg-[#111111] hover:bg-black text-white font-semibold py-3.5 px-4 rounded-2xl shadow-lg hover:shadow-xl hover:translate-y-[-1px] active:translate-y-[1px] transition-all flex items-center justify-center space-x-2 text-sm"
+                className="w-full min-h-[48px] bg-[#111111] hover:bg-black text-[#FACC15] font-display font-bold uppercase tracking-wider py-3.5 px-4 rounded-xl apk-chamfer-sm shadow-lg hover:shadow-xl active:scale-[0.985] transition-all duration-150 flex items-center justify-center space-x-2 text-sm cursor-pointer"
               >
                 <span>Ingresar al Sistema</span>
               </button>
 
-              {/* Demo Quick login links - Highly helpful for testing */}
-              <div className="pt-4 border-t border-gray-100">
-                <span className="text-xs font-bold text-gray-400 block uppercase tracking-widest text-center mb-3">
+              {/* Demo Quick login links */}
+              <div className="pt-4 border-t border-gray-200">
+                <span className="font-display text-[10px] font-bold text-gray-400 block uppercase tracking-[0.16em] text-center mb-2.5">
                   Accesos Rápidos Demo
                 </span>
                 <div className="grid grid-cols-3 gap-2">
@@ -172,10 +183,10 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       key={acc.email}
                       type="button"
                       onClick={() => fillCredentials(acc.email, acc.pass)}
-                      className="p-2.5 bg-gray-50 hover:bg-[#FACC15]/10 border border-gray-200 hover:border-[#FACC15] rounded-xl text-left transition-all"
+                      className="min-h-[52px] p-2.5 bg-[#F6F7F9] hover:bg-[#111111] hover:text-white border border-gray-200 hover:border-[#111111] rounded-xl text-left transition-all duration-150 cursor-pointer group active:scale-95"
                     >
-                      <p className="text-xs font-bold text-[#111111]">{acc.label}</p>
-                      <p className="text-[10px] text-gray-500 truncate">{acc.role}</p>
+                      <p className="font-display text-xs font-bold text-[#111111] group-hover:text-[#FACC15]">{acc.label}</p>
+                      <p className="text-[10px] text-gray-500 group-hover:text-gray-300 truncate">{acc.role}</p>
                     </button>
                   ))}
                 </div>
@@ -183,28 +194,28 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             </form>
           ) : (
             // Password Recovery Drawer
-            <form onSubmit={handleRecoverySubmit} className="space-y-5">
-              <div className="text-center mb-4">
-                <h2 className="text-lg font-bold text-[#111111]">Recuperar Contraseña</h2>
+            <form onSubmit={handleRecoverySubmit} className="space-y-4">
+              <div className="text-center mb-3">
+                <h2 className="font-display text-lg font-bold text-[#111111] uppercase tracking-wide">Recuperar Contraseña</h2>
                 <p className="text-xs text-gray-500 mt-1">
                   Ingresa tu correo registrado y te enviaremos instrucciones de restablecimiento.
                 </p>
               </div>
 
               {recoverySuccess && (
-                <div className="p-3 bg-green-50 text-green-700 rounded-xl text-xs font-medium border border-green-100 flex items-center space-x-2">
+                <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold border border-emerald-200 flex items-center space-x-2">
                   <UserCheck className="w-4 h-4 flex-shrink-0" />
                   <span>Enlace de recuperación enviado con éxito.</span>
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block uppercase tracking-wider">
+                <label className="font-display text-[11px] font-bold text-gray-700 block uppercase tracking-wider">
                   Correo Electrónico
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
+                    <Mail className="h-4.5 w-4.5 text-gray-400" />
                   </span>
                   <input
                     id="recovery-email-input"
@@ -213,7 +224,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                     value={recoveryEmail}
                     onChange={(e) => setRecoveryEmail(e.target.value)}
                     placeholder="tucorreo@taller.com"
-                    className="block w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all"
+                    className="apk-input block w-full min-h-[46px] pl-11 pr-4 py-3 text-sm font-medium text-[#111111]"
                   />
                 </div>
               </div>
@@ -222,7 +233,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                 <button
                   id="recovery-submit-btn"
                   type="submit"
-                  className="w-full bg-[#111111] text-white font-semibold py-3.5 px-4 rounded-2xl transition-all hover:bg-black text-sm"
+                  className="w-full min-h-[48px] bg-[#111111] text-[#FACC15] font-display font-bold uppercase tracking-wider py-3.5 px-4 rounded-xl apk-chamfer-sm transition-all hover:bg-black active:scale-[0.985] text-sm cursor-pointer"
                 >
                   Enviar Instrucciones
                 </button>
@@ -233,7 +244,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                     setShowRecovery(false);
                     setRecoverySuccess(false);
                   }}
-                  className="w-full py-2 px-4 rounded-xl text-xs font-medium text-gray-500 hover:text-[#111111] transition-colors"
+                  className="w-full min-h-[40px] py-2 px-4 rounded-xl text-xs font-semibold text-gray-500 hover:text-[#111111] transition-colors cursor-pointer"
                 >
                   Regresar al Login
                 </button>
@@ -243,9 +254,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
         </div>
       </div>
 
-      <div className="text-center mt-6 text-xs text-gray-400 space-y-1 max-w-sm px-4 leading-relaxed">
+      <div className="text-center mt-6 text-xs text-gray-500 space-y-1 max-w-sm px-4 leading-relaxed relative z-10">
         <p>Este sistema de demostración almacena información localmente.</p>
-        <p>© 2026 BOL.FIX. Todos los derechos reservados.</p>
+        <p className="font-mono text-[11px] text-gray-400">© 2026 BOL.FIX. Todos los derechos reservados.</p>
       </div>
     </div>
   );

@@ -159,15 +159,20 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
     <div id="order-list-view" className="space-y-4 pb-12 animate-fade-in">
       
       {/* Header section */}
-      <div className="flex justify-between items-center">
+      <div className="apk-dark-panel apk-chamfer-tr text-white p-4 sm:p-5 flex justify-between items-center gap-3">
         <div>
-          <h1 className="text-xl font-black text-gray-900 tracking-tight">Lista de Reparaciones</h1>
-          <p className="text-xs text-gray-500">Monitorea y actualiza todas las órdenes de servicio</p>
+          <span className="text-[10px] font-display uppercase tracking-[0.16em] text-[#FACC15] font-bold block">
+            ÓRDENES DE SERVICIO
+          </span>
+          <h1 className="font-display text-lg sm:text-xl font-bold text-white tracking-tight uppercase mt-0.5">
+            Lista de Reparaciones
+          </h1>
+          <p className="text-xs text-zinc-400 mt-0.5">Monitorea y actualiza todas las órdenes de servicio</p>
         </div>
         <button
           id="refresh-list-btn"
           onClick={() => setOrders(mockDb.getOrders())}
-          className="p-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-gray-500 hover:text-[#111111] transition-all cursor-pointer"
+          className="w-10 h-10 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-xl text-zinc-300 hover:text-[#FACC15] flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
           title="Refrescar lista"
         >
           <RefreshCw className="w-4 h-4" />
@@ -180,7 +185,7 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
           {/* Search box */}
           <div className="relative flex-1">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-              <Search className="h-4.5 w-4.5 text-gray-400" />
+              <Search className="h-4 w-4 text-zinc-400" />
             </span>
             <input
               id="search-orders-input"
@@ -188,7 +193,7 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por OT, cliente, modelo, IMEI..."
-              className="block w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-2xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15] focus:border-transparent transition-all shadow-sm"
+              className="apk-input block w-full pl-10 pr-4 py-3 text-xs font-medium min-h-[46px]"
             />
           </div>
 
@@ -196,10 +201,10 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
           <button
             id="toggle-filters-btn"
             onClick={() => setShowFilters(!showFilters)}
-            className={`px-3.5 py-2.5 rounded-2xl border text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer shadow-sm ${
+            className={`px-4 min-h-[46px] apk-chamfer-sm border text-xs font-display font-bold uppercase tracking-wider flex items-center space-x-2 transition-all cursor-pointer active:scale-95 ${
               showFilters || statusFilter !== 'ALL' || sortBy !== 'newest'
-                ? 'bg-black text-[#FACC15] border-black'
-                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                ? 'bg-[#111111] text-[#FACC15] border-[#111111]'
+                : 'bg-white text-zinc-700 border-zinc-200 hover:border-[#111111]'
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
@@ -207,15 +212,17 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
           </button>
         </div>
 
-        {/* Active filter feedback pill */}
+        {/* Active filter feedback chip */}
         {statusFilter !== 'ALL' && (
-          <div className="flex items-center space-x-2 bg-[#FACC15]/10 border border-[#FACC15]/20 px-3.5 py-1.5 rounded-2xl w-max animate-fade-in">
-            <span className="text-xs font-bold text-yellow-800">Filtrado por: <span className="font-extrabold">{getFilterLabel(statusFilter)}</span></span>
+          <div className="flex items-center space-x-2 bg-[#111111] text-white border border-[#FACC15]/40 px-3 py-1.5 rounded-lg w-max animate-fade-in">
+            <span className="text-[11px] font-medium text-zinc-300">
+              Filtrado por: <span className="font-display font-bold text-[#FACC15] uppercase tracking-wider">{getFilterLabel(statusFilter)}</span>
+            </span>
             <button
               id="clear-filter-pill-btn"
               type="button"
               onClick={() => setStatusFilter('ALL')}
-              className="text-yellow-800 hover:text-yellow-950 font-black text-xs px-1.5 hover:bg-[#FACC15]/20 rounded-full transition-colors cursor-pointer"
+              className="text-[#FACC15] hover:text-white font-mono font-bold text-xs px-1.5 hover:bg-white/10 rounded transition-colors cursor-pointer"
               title="Quitar filtro"
             >
               ×
@@ -225,10 +232,12 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
 
         {/* Expandable Advanced Filters Box */}
         {showFilters && (
-          <div className="bg-white p-4 rounded-2xl border border-gray-150 shadow-sm space-y-4 animate-fade-in">
+          <div className="apk-card p-4 space-y-4 animate-fade-in">
             {/* Status quick select */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] uppercase font-extrabold text-gray-400 tracking-wider">Estado de Reparación</label>
+            <div className="space-y-2">
+              <label className="font-display text-[10px] uppercase font-bold text-zinc-500 tracking-[0.14em] block">
+                Estado de Reparación
+              </label>
               <div className="flex flex-wrap gap-1.5">
                 {['ALL', 'HOY', 'EN_REPARACION', 'RECIBIDO', 'DIAGNOSTICO', 'ESPERANDO_REPUESTO', 'REPARANDO', 'LISTO', 'ENTREGADO'].map((status) => (
                   <button
@@ -236,14 +245,16 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
                     key={status}
                     type="button"
                     onClick={() => setStatusFilter(status)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    className={`px-3 py-2 rounded-lg text-[11px] font-display font-bold uppercase tracking-wide border transition-all cursor-pointer flex items-center space-x-1.5 ${
                       statusFilter === status
-                        ? 'bg-[#111111] text-white border-black'
-                        : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'
+                        ? 'bg-[#111111] text-white border-[#111111]'
+                        : 'bg-[#F6F7F9] text-zinc-600 border-zinc-200/80 hover:border-zinc-400'
                     }`}
                   >
-                    {getFilterLabel(status)}
-                    <span className={`ml-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-bold ${statusFilter === status ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-700'}`}>
+                    <span>{getFilterLabel(status)}</span>
+                    <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold tabular-nums ${
+                      statusFilter === status ? 'bg-[#FACC15] text-[#111111]' : 'bg-zinc-200/80 text-zinc-700'
+                    }`}>
                       {getStatusCount(status)}
                     </span>
                   </button>
@@ -252,8 +263,10 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
             </div>
 
             {/* Sorting options */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] uppercase font-extrabold text-gray-400 tracking-wider">Ordenar Resultados</label>
+            <div className="space-y-2 pt-3 border-t border-zinc-100">
+              <label className="font-display text-[10px] uppercase font-bold text-zinc-500 tracking-[0.14em] block">
+                Ordenar Resultados
+              </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { value: 'newest', label: 'Más recientes' },
@@ -266,10 +279,10 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
                     key={option.value}
                     type="button"
                     onClick={() => setSortBy(option.value)}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-center ${
+                    className={`py-2 px-3 rounded-lg border text-xs font-display font-bold uppercase tracking-wide transition-all cursor-pointer text-center ${
                       sortBy === option.value
-                        ? 'bg-yellow-400 text-[#111111] border-yellow-400 font-bold'
-                        : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'
+                        ? 'bg-[#FACC15] text-[#111111] border-[#FACC15]'
+                        : 'bg-[#F6F7F9] text-zinc-600 border-zinc-200/80 hover:border-zinc-400'
                     }`}
                   >
                     {option.label}
@@ -282,11 +295,11 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
       </div>
 
       {/* ORDERS LIST CONTAINER */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {filteredOrders.length === 0 ? (
-          <div className="p-12 bg-white border border-gray-100 rounded-3xl text-center space-y-2">
-            <p className="text-sm font-semibold text-gray-700">No se encontraron reparaciones</p>
-            <p className="text-xs text-gray-400">Intenta cambiar la búsqueda o desactivar los filtros activos.</p>
+          <div className="p-12 apk-card text-center space-y-2">
+            <p className="font-display text-sm font-bold text-zinc-700 uppercase tracking-wide">No se encontraron reparaciones</p>
+            <p className="text-xs text-zinc-400">Intenta cambiar la búsqueda o desactivar los filtros activos.</p>
           </div>
         ) : (
           filteredOrders.map((order) => (
@@ -294,34 +307,34 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
               id={`order-list-item-${order.id}`}
               key={order.id}
               onClick={() => onSelectOrder(order.id)}
-              className="bg-white p-4 rounded-2xl border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group active:scale-[0.99]"
+              className="apk-card-interactive p-3.5 sm:p-4 cursor-pointer flex items-center justify-between group"
             >
               <div className="flex items-center space-x-3.5 min-w-0">
                 {/* Visual smartphone container icon */}
-                <div className="w-11 h-11 bg-gray-50 rounded-xl flex items-center justify-center border border-gray-100 group-hover:bg-[#FACC15]/10 group-hover:border-[#FACC15]/20 transition-all flex-shrink-0">
-                  <Smartphone className="w-5.5 h-5.5 text-gray-400 group-hover:text-yellow-700" />
+                <div className="w-11 h-11 bg-[#F2F3F5] rounded-xl flex items-center justify-center border border-zinc-200/80 group-hover:bg-[#111111] group-hover:border-[#111111] transition-all flex-shrink-0">
+                  <Smartphone className="w-5 h-5 text-zinc-600 group-hover:text-[#FACC15] transition-colors" />
                 </div>
 
                 <div className="min-w-0">
                   {/* Row with OT and date */}
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-mono font-black text-[#111111]">{order.otNumber}</span>
-                    <span className="text-[10px] text-gray-400 font-medium">{new Date(order.createdAt).toLocaleDateString('es-ES')}</span>
+                    <span className="text-xs font-mono font-bold text-[#111111] tabular-nums">{order.otNumber}</span>
+                    <span className="text-[10px] font-mono text-zinc-400">· {new Date(order.createdAt).toLocaleDateString('es-ES')}</span>
                   </div>
 
                   {/* Brand and model */}
-                  <p className="text-sm font-extrabold text-gray-900 truncate mt-0.5">
+                  <p className="font-display text-sm font-bold text-[#111111] truncate mt-0.5">
                     {order.brand} {order.model}
                   </p>
 
                   {/* Client & Tech footer */}
-                  <div className="flex flex-wrap items-center text-[11px] text-gray-500 mt-0.5 gap-x-2 gap-y-0.2">
-                    <span className="font-medium text-gray-700">{order.clientName}</span>
+                  <div className="flex flex-wrap items-center text-[11px] text-zinc-500 mt-0.5 gap-x-2 gap-y-0.5">
+                    <span className="font-semibold text-zinc-700">{order.clientName}</span>
                     {order.assignedTechnicianName && (
                       <>
-                        <span className="text-gray-300">|</span>
-                        <span className="text-gray-400 flex items-center">
-                          <Wrench className="w-3 h-3 mr-0.5 text-gray-400" />
+                        <span className="text-zinc-300">·</span>
+                        <span className="text-zinc-500 flex items-center">
+                          <Wrench className="w-3 h-3 mr-1 text-zinc-400" />
                           {order.assignedTechnicianName}
                         </span>
                       </>
@@ -331,19 +344,19 @@ export default function OrderListView({ onSelectOrder, refreshTrigger = 0, initi
               </div>
 
               {/* Status and price right rail */}
-              <div className="flex items-center space-x-3 flex-shrink-0 ml-4">
+              <div className="flex items-center space-x-3 flex-shrink-0 ml-3">
                 <div className="text-right hidden sm:block">
-                  <p className="text-xs font-extrabold text-[#111111] font-mono">Bs. {order.estimatedCost.toLocaleString('es-ES')}</p>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">
+                  <p className="text-xs font-bold text-[#111111] font-mono tabular-nums">Bs. {order.estimatedCost.toLocaleString('es-ES')}</p>
+                  <p className="font-display text-[10px] text-zinc-400 uppercase font-bold tracking-wider">
                     {order.advancePayment >= order.estimatedCost ? 'Saldado' : order.advancePayment > 0 ? 'Con Seña' : 'Pendiente'}
                   </p>
                 </div>
                 
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${getStatusBadgeStyles(order.status)}`}>
+                <span className={`apk-tech-tag border ${getStatusBadgeStyles(order.status)}`}>
                   {getStatusLabel(order.status)}
                 </span>
 
-                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#111111] transform group-hover:translate-x-0.5 transition-all" />
+                <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-[#111111] transform group-hover:translate-x-0.5 transition-all" />
               </div>
             </div>
           ))

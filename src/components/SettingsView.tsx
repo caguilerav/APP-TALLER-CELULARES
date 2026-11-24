@@ -1585,6 +1585,30 @@ export default function SettingsView({ currentUser, onSettingsSaved }: SettingsV
             </label>
           </div>
 
+          {/* DOWNLOAD FULL TECHNICAL SPECIFICATION PDF FOR CLAUDE CODE / APK / IPA */}
+          <div className="col-span-full bg-gradient-to-r from-[#111111] to-[#1f1f1f] text-white p-6 rounded-3xl border border-white/10 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <span className="inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#00FF40]/15 text-[#00FF40] border border-[#00FF40]/30">
+                Documentación Técnica · APK / IPA
+              </span>
+              <h3 className="text-base font-black text-white uppercase">
+                Especificación Completa de BOL.FIX (PDF para Claude Code)
+              </h3>
+              <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
+                Descarga el documento técnico completo con toda la arquitectura, modelos de datos, pantallas, reglas de negocio y guía móvil para compilar la app en Android (.apk) o iOS (.ipa).
+              </p>
+            </div>
+
+            <a
+              href="/BOLFIX_Especificacion_Completa.pdf"
+              download="BOLFIX_Especificacion_Completa.pdf"
+              className="bg-[#FACC15] hover:bg-[#E2B810] text-black font-black px-5 py-3 rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer whitespace-nowrap shadow-lg shrink-0"
+            >
+              <Download className="w-4 h-4" />
+              <span>Descargar PDF Completo</span>
+            </a>
+          </div>
+
           {/* RESET DATABASE TO FACTORY SEED */}
           <div className="col-span-full bg-red-50/60 p-6 rounded-3xl border border-red-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="space-y-1">

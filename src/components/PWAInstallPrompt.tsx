@@ -164,32 +164,32 @@ export default function PWAInstallPrompt() {
 
   return (
     <>
-      {/* Translucent Cloud Banner (Nube semi-transparente) - Solo visible en móviles / no en PC */}
+      {/* Compact Native Android Install Strip */}
       {showBanner && (
-        <div className="md:hidden mx-3 my-2 bg-black/75 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-2.5 px-3.5 flex items-center justify-between gap-3 text-white transition-all animate-fade-in z-30">
+        <div className="md:hidden mx-3 mt-2.5 mb-0.5 apk-dark-panel rounded-xl py-2 px-3 flex items-center justify-between gap-2.5 text-white transition-all animate-fade-in z-30">
           {/* Left Side: App Icon & Title */}
           <div className="flex items-center space-x-2.5 min-w-0">
-            <BolFixLogo variant="icon" className="w-9 h-9 rounded-xl shadow-md shrink-0" />
+            <BolFixLogo variant="icon" className="w-8 h-8 rounded-lg shadow-md shrink-0 ring-1 ring-white/15" />
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5">
-                <span className="text-xs font-extrabold tracking-wide text-white truncate">
+                <span className="font-display text-xs font-bold tracking-wider text-white truncate uppercase">
                   BOL.FIX
                 </span>
-                <span className="bg-[#FACC15]/20 text-[#FACC15] border border-[#FACC15]/40 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                  App
+                <span className="text-[#FACC15] font-display text-[10px] font-bold uppercase tracking-wider">
+                  · App
                 </span>
               </div>
-              <p className="text-[10px] text-gray-300 font-medium truncate">
+              <p className="text-[10px] text-gray-400 font-medium truncate">
                 Instala la app nativa en tu dispositivo
               </p>
             </div>
           </div>
 
           {/* Right Side: Install Button & Close */}
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex items-center space-x-1.5 shrink-0">
             <button
               onClick={handleInstallClick}
-              className="bg-[#FACC15] hover:bg-yellow-400 text-black font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center space-x-1.5 shadow-md shadow-yellow-500/20 transition-all transform active:scale-95 hover:scale-[1.02] cursor-pointer uppercase tracking-wider"
+              className="min-h-[34px] bg-[#FACC15] hover:bg-yellow-400 text-[#111111] font-display font-bold px-3 py-1.5 rounded-lg apk-chamfer-sm text-[11px] flex items-center space-x-1.5 transition-all active:scale-95 cursor-pointer uppercase tracking-wider whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Instalar App</span>
@@ -197,7 +197,7 @@ export default function PWAInstallPrompt() {
 
             <button
               onClick={handleDismissBanner}
-              className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
               title="Cerrar aviso"
             >
               <X className="w-4 h-4" />
@@ -208,7 +208,7 @@ export default function PWAInstallPrompt() {
 
       {/* Success Notification after install */}
       {installedSuccess && (
-        <div className="fixed bottom-6 right-6 z-50 bg-black text-[#FACC15] border border-[#FACC15] px-5 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-3 text-xs font-black animate-slide-in">
+        <div className="fixed bottom-6 right-6 z-50 apk-dark-panel text-[#FACC15] border border-[#FACC15]/50 px-5 py-3.5 rounded-xl shadow-2xl flex items-center space-x-3 text-xs font-display font-bold animate-slide-in">
           <CheckCircle2 className="w-5 h-5 text-[#FACC15]" />
           <span>¡Aplicación instalada con éxito! Ya está disponible en tu pantalla principal.</span>
         </div>

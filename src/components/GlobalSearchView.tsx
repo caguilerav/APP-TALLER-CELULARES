@@ -107,29 +107,29 @@ export default function GlobalSearchView({
       ></div>
 
       {/* Spotlight Search Panel */}
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-100 z-10 flex flex-col transform transition-all animate-scale-up max-h-[75vh]">
+      <div className="relative bg-white rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.45)] w-full max-w-2xl overflow-hidden border border-black/15 z-10 flex flex-col transform transition-all animate-scale-up max-h-[78vh]">
         {/* Search Input Bar */}
-        <div className="flex items-center px-4 py-3.5 border-b border-gray-150 bg-gray-50/50">
-          <Search className="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" />
+        <div className="flex items-center px-4 py-3.5 border-b border-white/10 bg-[#111111] text-white">
+          <Search className="w-5 h-5 text-[#FACC15] mr-3 flex-shrink-0" />
           <input
             type="text"
             autoFocus
             placeholder="Buscar por cliente, N° OT, modelo de celular, IMEI, repuesto o venta..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-transparent text-sm font-bold text-gray-900 focus:outline-none placeholder-gray-400"
+            className="w-full bg-transparent text-sm font-semibold text-white focus:outline-none placeholder-gray-400"
           />
           {query && (
             <button 
               onClick={() => setQuery('')}
-              className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full w-5 h-5 flex items-center justify-center font-bold mr-2 transition-colors"
+              className="text-xs bg-white/15 hover:bg-white/25 text-white rounded-lg w-7 h-7 flex items-center justify-center font-bold mr-2 transition-colors cursor-pointer"
             >
               ×
             </button>
           )}
           <button 
             onClick={onClose}
-            className="text-xs font-bold text-gray-400 hover:text-black transition-colors px-2 py-1 bg-white border border-gray-200 rounded-lg shadow-2xs"
+            className="font-display text-[11px] font-bold text-gray-300 hover:text-[#FACC15] transition-colors px-2.5 py-1.5 bg-white/10 border border-white/15 rounded-lg whitespace-nowrap cursor-pointer"
           >
             Cerrar [ESC]
           </button>
@@ -139,37 +139,39 @@ export default function GlobalSearchView({
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
           {searchQuery.length < 2 ? (
             <div className="py-8 text-center text-gray-400 space-y-4">
-              <div className="space-y-1">
-                <SearchIcon className="w-8 h-8 text-gray-300 mx-auto" />
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-700">Buscador Inteligente del Sistema</p>
-                <p className="text-[11px] max-w-md mx-auto leading-relaxed text-gray-500">
-                  Escribe al menos <strong className="text-gray-700">2 caracteres</strong> para rastrear órdenes, repuestos, clientes o números IMEI.
+              <div className="space-y-1.5">
+                <div className="w-12 h-12 rounded-xl bg-[#F2F3F5] border border-gray-200 flex items-center justify-center mx-auto">
+                  <SearchIcon className="w-5 h-5 text-[#111111]" />
+                </div>
+                <p className="font-display text-xs font-bold uppercase tracking-wider text-[#111111]">Buscador Inteligente del Sistema</p>
+                <p className="text-xs max-w-md mx-auto leading-relaxed text-gray-500">
+                  Escribe al menos <strong className="text-[#111111]">2 caracteres</strong> para rastrear órdenes, repuestos, clientes o números IMEI.
                 </p>
               </div>
 
               {/* Quick Jump Buttons */}
-              <div className="pt-3 border-t border-gray-150 max-w-lg mx-auto">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2.5">
+              <div className="pt-4 border-t border-gray-200 max-w-lg mx-auto">
+                <span className="font-display text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2.5">
                   Accesos Directos Rápidos
                 </span>
                 <div className="flex flex-wrap justify-center gap-2">
                   <button
                     onClick={() => { onSelectTab('panel_tecnico'); onClose(); }}
-                    className="px-3 py-1.5 bg-[#111111] hover:bg-black text-[#00FF40] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer border border-[#00FF40]/30"
+                    className="min-h-[40px] px-3.5 py-2 bg-[#111111] hover:bg-black text-[#00E63C] rounded-xl text-xs font-display font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-[#00E63C]/30 active:scale-95"
                   >
-                    <Wrench className="w-3.5 h-3.5 text-[#00FF40]" />
+                    <Wrench className="w-3.5 h-3.5 text-[#00E63C]" />
                     <span>Panel del Técnico & Comisiones</span>
                   </button>
                   <button
                     onClick={() => { onSelectTab('reparaciones'); onClose(); }}
-                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="min-h-[40px] px-3.5 py-2 bg-[#F2F3F5] hover:bg-gray-200 text-[#111111] border border-gray-200 rounded-xl text-xs font-display font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
                   >
                     <ClipboardList className="w-3.5 h-3.5" />
                     <span>Lista de Reparaciones</span>
                   </button>
                   <button
                     onClick={() => { onSelectTab('inventario'); onClose(); }}
-                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="min-h-[40px] px-3.5 py-2 bg-[#F2F3F5] hover:bg-gray-200 text-[#111111] border border-gray-200 rounded-xl text-xs font-display font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
                   >
                     <Package className="w-3.5 h-3.5" />
                     <span>Inventario</span>
@@ -179,8 +181,8 @@ export default function GlobalSearchView({
             </div>
           ) : totalResultsCount === 0 ? (
             <div className="py-12 text-center text-gray-400 space-y-1">
-              <p className="text-xs font-bold text-gray-700">No se encontraron resultados para "{query}"</p>
-              <p className="text-[10px]">Prueba con otra palabra clave, número de teléfono o código de barras.</p>
+              <p className="font-display text-xs font-bold text-[#111111]">No se encontraron resultados para "{query}"</p>
+              <p className="text-[11px]">Prueba con otra palabra clave, número de teléfono o código de barras.</p>
             </div>
           ) : (
             <div className="space-y-4">

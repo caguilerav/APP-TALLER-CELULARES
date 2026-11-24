@@ -77,60 +77,76 @@ export default function DashboardView({ currentUser, onNavigateToTab, onSelectOr
   };
 
   return (
-    <div id="dashboard-view" className="space-y-6 pb-12 animate-fade-in">
+    <div id="dashboard-view" className="space-y-5 pb-12 animate-fade-in">
       
-      {/* Welcome Hero / Quick Banner */}
-      <div className="bg-[#111111] text-white p-6 rounded-3xl shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[140px]">
-        <div className="absolute right-0 bottom-0 translate-x-12 translate-y-6 opacity-10">
-          <Smartphone className="w-48 h-48 text-[#FACC15]" />
+      {/* Welcome Hero / Command Banner */}
+      <div className="apk-dark-panel apk-chamfer text-white p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between min-h-[152px]">
+        <div className="absolute right-0 bottom-0 translate-x-10 translate-y-6 opacity-[0.07] pointer-events-none">
+          <Smartphone className="w-44 h-44 text-[#FACC15]" />
         </div>
         
-        <div className="flex justify-between items-start">
+        <div className="relative z-10 flex justify-between items-start gap-3">
           <div>
-            <span className="bg-[#FACC15]/20 text-[#FACC15] text-[10px] uppercase font-bold px-2.5 py-1 rounded-full border border-[#FACC15]/30 flex items-center space-x-1 w-max">
-              <Sparkles className="w-3 h-3 mr-1" />
-              <span>Taller Activo</span>
-            </span>
-            <h2 className="text-xl font-bold mt-2 tracking-tight">Hola, {currentUser.name}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Rol: {currentUser.role === 'ADMIN' ? 'Administrador' : currentUser.role === 'RECEPTIONIST' ? 'Recepción' : 'Técnico Especialista'}</p>
+            <div className="inline-flex items-center space-x-1.5 text-[10px] font-display uppercase font-bold tracking-[0.16em] text-[#FACC15]">
+              <Sparkles className="w-3 h-3" />
+              <span>TALLER ACTIVO</span>
+            </div>
+            <h2 className="font-display text-xl sm:text-2xl font-bold mt-1.5 tracking-tight text-white">
+              Hola, {currentUser.name}
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5 font-medium">
+              Rol: {currentUser.role === 'ADMIN' ? 'Administrador' : currentUser.role === 'RECEPTIONIST' ? 'Recepción' : 'Técnico Especialista'}
+            </p>
           </div>
-          <div className="text-right text-xs text-gray-400">
-            <span className="block font-medium text-white">{new Date().toLocaleDateString('es-ES', { weekday: 'long' })}</span>
-            <span>{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+          <div className="text-right text-xs text-zinc-400 bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 rounded-xl shrink-0">
+            <span className="block font-display font-bold text-white uppercase text-[11px] tracking-wider">
+              {new Date().toLocaleDateString('es-ES', { weekday: 'long' })}
+            </span>
+            <span className="font-mono text-[11px] text-zinc-400">
+              {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+            </span>
           </div>
         </div>
 
-        <div className="flex space-x-4 mt-4 pt-4 border-t border-white/10 text-xs">
+        <div className="relative z-10 grid grid-cols-2 gap-4 mt-5 pt-4 border-t border-white/10">
           <div>
-            <span className="text-gray-400 block text-[10px] uppercase font-bold tracking-widest">Ingresos del día</span>
-            <span className="text-lg font-bold text-[#FACC15]">Bs. {stats.dailyRevenue.toLocaleString('es-ES')}</span>
+            <span className="text-zinc-400 block text-[10px] font-display uppercase font-bold tracking-[0.14em]">
+              Ingresos del día
+            </span>
+            <span className="text-xl sm:text-2xl font-mono font-bold text-[#FACC15] tabular-nums tracking-tight block mt-0.5">
+              Bs. {stats.dailyRevenue.toLocaleString('es-ES')}
+            </span>
           </div>
           <div className="border-l border-white/10 pl-4">
-            <span className="text-gray-400 block text-[10px] uppercase font-bold tracking-widest">Recibidos hoy</span>
-            <span className="text-lg font-bold text-white">{stats.receivedToday} equipos</span>
+            <span className="text-zinc-400 block text-[10px] font-display uppercase font-bold tracking-[0.14em]">
+              Recibidos hoy
+            </span>
+            <span className="text-xl sm:text-2xl font-mono font-bold text-white tabular-nums tracking-tight block mt-0.5">
+              {stats.receivedToday} <span className="text-xs font-sans font-semibold text-zinc-400">equipos</span>
+            </span>
           </div>
         </div>
       </div>
 
       {/* Grid of Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
         <button
           type="button"
           onClick={() => onNavigateToTab('reparaciones', 'HOY')}
-          className="text-left bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between min-h-[110px] hover:border-gray-300 hover:shadow-md transition-all active:scale-[0.98] cursor-pointer group"
+          className="text-left apk-card-interactive p-4 flex flex-col justify-between min-h-[116px] cursor-pointer group"
         >
           <div className="flex justify-between items-start w-full">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hoy</span>
-            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
+            <span className="font-display text-[11px] font-bold text-zinc-500 uppercase tracking-[0.1em]">Hoy</span>
+            <div className="w-8 h-8 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
               <Calendar className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-none mt-2">{stats.receivedToday}</h3>
-            <p className="text-[11px] text-gray-500 mt-1 flex items-center justify-between">
-              <span>Equipos recibidos hoy</span>
-              <span className="text-[10px] font-bold text-[#FACC15] group-hover:translate-x-0.5 transition-transform">→</span>
+          <div className="mt-2">
+            <h3 className="text-3xl font-mono font-bold text-[#111111] tabular-nums tracking-tight leading-none">{stats.receivedToday}</h3>
+            <p className="text-[11px] text-zinc-500 mt-1.5 flex items-center justify-between font-medium">
+              <span className="truncate">Equipos recibidos hoy</span>
+              <span className="text-xs font-mono font-bold text-[#111111] bg-[#FACC15]/30 px-1.5 py-0.5 rounded-md group-hover:translate-x-0.5 transition-transform ml-1">→</span>
             </p>
           </div>
         </button>
@@ -138,19 +154,19 @@ export default function DashboardView({ currentUser, onNavigateToTab, onSelectOr
         <button
           type="button"
           onClick={() => onNavigateToTab('reparaciones', 'EN_REPARACION')}
-          className="text-left bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between min-h-[110px] hover:border-gray-300 hover:shadow-md transition-all active:scale-[0.98] cursor-pointer group"
+          className="text-left apk-card-interactive p-4 flex flex-col justify-between min-h-[116px] cursor-pointer group"
         >
           <div className="flex justify-between items-start w-full">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">En Reparación</span>
-            <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg group-hover:bg-purple-100 transition-colors">
+            <span className="font-display text-[11px] font-bold text-zinc-500 uppercase tracking-[0.1em]">En Reparación</span>
+            <div className="w-8 h-8 bg-purple-50 text-purple-600 border border-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-100 transition-colors">
               <Wrench className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-none mt-2">{stats.inRepair}</h3>
-            <p className="text-[11px] text-gray-500 mt-1 flex items-center justify-between">
-              <span>Diagnóstico / reparación</span>
-              <span className="text-[10px] font-bold text-[#FACC15] group-hover:translate-x-0.5 transition-transform">→</span>
+          <div className="mt-2">
+            <h3 className="text-3xl font-mono font-bold text-[#111111] tabular-nums tracking-tight leading-none">{stats.inRepair}</h3>
+            <p className="text-[11px] text-zinc-500 mt-1.5 flex items-center justify-between font-medium">
+              <span className="truncate">Diagnóstico / reparación</span>
+              <span className="text-xs font-mono font-bold text-[#111111] bg-[#FACC15]/30 px-1.5 py-0.5 rounded-md group-hover:translate-x-0.5 transition-transform ml-1">→</span>
             </p>
           </div>
         </button>
@@ -158,19 +174,19 @@ export default function DashboardView({ currentUser, onNavigateToTab, onSelectOr
         <button
           type="button"
           onClick={() => onNavigateToTab('reparaciones', 'LISTO')}
-          className="text-left bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between min-h-[110px] hover:border-gray-300 hover:shadow-md transition-all active:scale-[0.98] cursor-pointer group"
+          className="text-left apk-card-interactive p-4 flex flex-col justify-between min-h-[116px] cursor-pointer group"
         >
           <div className="flex justify-between items-start w-full">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Listos</span>
-            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-100 transition-colors">
+            <span className="font-display text-[11px] font-bold text-zinc-500 uppercase tracking-[0.1em]">Listos</span>
+            <div className="w-8 h-8 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
               <CheckCircle className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-none mt-2">{stats.ready}</h3>
-            <p className="text-[11px] text-gray-500 mt-1 flex items-center justify-between">
-              <span>Esperando retiro</span>
-              <span className="text-[10px] font-bold text-[#FACC15] group-hover:translate-x-0.5 transition-transform">→</span>
+          <div className="mt-2">
+            <h3 className="text-3xl font-mono font-bold text-[#111111] tabular-nums tracking-tight leading-none">{stats.ready}</h3>
+            <p className="text-[11px] text-zinc-500 mt-1.5 flex items-center justify-between font-medium">
+              <span className="truncate">Esperando retiro</span>
+              <span className="text-xs font-mono font-bold text-[#111111] bg-[#FACC15]/30 px-1.5 py-0.5 rounded-md group-hover:translate-x-0.5 transition-transform ml-1">→</span>
             </p>
           </div>
         </button>
@@ -178,36 +194,36 @@ export default function DashboardView({ currentUser, onNavigateToTab, onSelectOr
         <button
           type="button"
           onClick={() => onNavigateToTab('reparaciones', 'ENTREGADO')}
-          className="text-left bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between min-h-[110px] hover:border-gray-300 hover:shadow-md transition-all active:scale-[0.98] cursor-pointer group"
+          className="text-left apk-card-interactive p-4 flex flex-col justify-between min-h-[116px] cursor-pointer group"
         >
           <div className="flex justify-between items-start w-full">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Entregados</span>
-            <div className="p-1.5 bg-gray-50 text-gray-600 rounded-lg group-hover:bg-gray-100 transition-colors">
+            <span className="font-display text-[11px] font-bold text-zinc-500 uppercase tracking-[0.1em]">Entregados</span>
+            <div className="w-8 h-8 bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-xl flex items-center justify-center group-hover:bg-zinc-200 transition-colors">
               <Truck className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-none mt-2">{stats.delivered}</h3>
-            <p className="text-[11px] text-gray-500 mt-1 flex items-center justify-between">
-              <span>Historial del mes</span>
-              <span className="text-[10px] font-bold text-[#FACC15] group-hover:translate-x-0.5 transition-transform">→</span>
+          <div className="mt-2">
+            <h3 className="text-3xl font-mono font-bold text-[#111111] tabular-nums tracking-tight leading-none">{stats.delivered}</h3>
+            <p className="text-[11px] text-zinc-500 mt-1.5 flex items-center justify-between font-medium">
+              <span className="truncate">Historial del mes</span>
+              <span className="text-xs font-mono font-bold text-[#111111] bg-[#FACC15]/30 px-1.5 py-0.5 rounded-md group-hover:translate-x-0.5 transition-transform ml-1">→</span>
             </p>
           </div>
         </button>
 
       </div>
 
-      {/* Quick single-handed bottom triggers */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Quick single-handed triggers */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {(currentUser.role === 'ADMIN' || currentUser.role === 'RECEPTIONIST') && (
           <button
             id="quick-reception-btn"
             onClick={() => onNavigateToTab('recepcion')}
-            className="flex items-center justify-between p-4 bg-[#FACC15] hover:bg-[#FACC15]/90 text-[#111111] rounded-2xl font-bold shadow-md hover:shadow-lg transition-all text-sm group cursor-pointer"
+            className="flex items-center justify-between px-4 py-3.5 min-h-[58px] bg-[#FACC15] hover:bg-[#fde047] text-[#111111] apk-chamfer-sm font-display font-bold uppercase tracking-wider shadow-[0_6px_20px_-6px_rgba(250,204,21,0.55)] active:scale-[0.985] transition-all text-sm group cursor-pointer"
           >
-            <div className="flex items-center space-x-2.5">
-              <div className="p-1.5 bg-black/10 rounded-xl">
-                <Plus className="w-5 h-5 text-black" />
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 bg-[#111111] text-[#FACC15] rounded-xl flex items-center justify-center">
+                <Plus className="w-5 h-5" />
               </div>
               <span>Recepción Rápida</span>
             </div>
@@ -218,10 +234,10 @@ export default function DashboardView({ currentUser, onNavigateToTab, onSelectOr
         <button
           id="quick-list-btn"
           onClick={() => onNavigateToTab('reparaciones')}
-          className="flex items-center justify-between p-4 bg-white hover:bg-gray-50 text-[#111111] border border-gray-200 rounded-2xl font-bold shadow-sm transition-all text-sm group cursor-pointer"
+          className="flex items-center justify-between px-4 py-3.5 min-h-[58px] bg-white hover:bg-zinc-50 text-[#111111] border border-zinc-200/90 hover:border-[#111111] apk-chamfer-sm font-display font-bold uppercase tracking-wider shadow-xs active:scale-[0.985] transition-all text-sm group cursor-pointer"
         >
-          <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 bg-gray-100 rounded-xl">
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 bg-zinc-100 border border-zinc-200 rounded-xl flex items-center justify-center">
               <ClipboardList className="w-5 h-5 text-[#111111]" />
             </div>
             <span>Ver Reparaciones</span>
@@ -233,20 +249,23 @@ export default function DashboardView({ currentUser, onNavigateToTab, onSelectOr
       {/* Recent Orders List Section */}
       <div className="space-y-3">
         <div className="flex justify-between items-center px-1">
-          <h4 className="text-sm font-bold text-[#111111] uppercase tracking-wider">Últimas Órdenes</h4>
+          <div className="flex items-center space-x-2">
+            <span className="w-1.5 h-4 bg-[#FACC15] rounded-xs" />
+            <h4 className="font-display text-sm font-bold text-[#111111] uppercase tracking-[0.12em]">Últimas Órdenes</h4>
+          </div>
           <button
             id="view-all-orders"
             onClick={() => onNavigateToTab('reparaciones')}
-            className="text-xs font-semibold text-gray-500 hover:text-[#111111] transition-colors"
+            className="font-display text-xs font-bold uppercase tracking-wider text-zinc-500 hover:text-[#111111] transition-colors cursor-pointer"
           >
-            Ver todas
+            Ver todas →
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {recentOrders.length === 0 ? (
-            <div className="p-8 bg-white border border-gray-100 rounded-2xl text-center">
-              <p className="text-xs text-gray-400 font-medium">No se registran órdenes recientes.</p>
+            <div className="p-8 apk-card text-center">
+              <p className="text-xs text-zinc-400 font-medium">No se registran órdenes recientes.</p>
             </div>
           ) : (
             recentOrders.map((order) => (
@@ -254,27 +273,27 @@ export default function DashboardView({ currentUser, onNavigateToTab, onSelectOr
                 id={`recent-order-card-${order.id}`}
                 key={order.id}
                 onClick={() => onSelectOrder(order.id)}
-                className="bg-white p-4 rounded-2xl border border-gray-100 hover:border-gray-300 shadow-sm hover:shadow-md cursor-pointer transition-all flex items-center justify-between group active:scale-[0.99]"
+                className="apk-card-interactive p-3.5 sm:p-4 cursor-pointer flex items-center justify-between group"
               >
                 <div className="flex items-center space-x-3.5 min-w-0">
-                  <div className="w-11 h-11 bg-gray-50 rounded-xl flex items-center justify-center border border-gray-100 flex-shrink-0 group-hover:bg-[#FACC15]/10 group-hover:border-[#FACC15]/20 transition-all">
-                    <Smartphone className="w-5.5 h-5.5 text-gray-500 group-hover:text-yellow-700" />
+                  <div className="w-11 h-11 bg-[#F2F3F5] rounded-xl flex items-center justify-center border border-zinc-200/80 flex-shrink-0 group-hover:bg-[#111111] group-hover:border-[#111111] transition-all">
+                    <Smartphone className="w-5 h-5 text-zinc-600 group-hover:text-[#FACC15] transition-colors" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs font-mono font-bold text-[#111111]">{order.otNumber}</span>
-                      <span className="text-[10px] text-gray-400 font-medium">• {new Date(order.createdAt).toLocaleDateString('es-ES')}</span>
+                      <span className="text-xs font-mono font-bold text-[#111111] tabular-nums">{order.otNumber}</span>
+                      <span className="text-[10px] font-mono text-zinc-400">· {new Date(order.createdAt).toLocaleDateString('es-ES')}</span>
                     </div>
-                    <p className="text-sm font-bold text-gray-900 truncate mt-0.5">{order.brand} {order.model}</p>
-                    <p className="text-xs text-gray-500 truncate">{order.clientName}</p>
+                    <p className="font-display text-sm font-bold text-[#111111] truncate mt-0.5">{order.brand} {order.model}</p>
+                    <p className="text-xs text-zinc-500 truncate font-medium">{order.clientName}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2.5 flex-shrink-0">
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${getStatusBadgeStyles(order.status)}`}>
+                <div className="flex items-center space-x-2.5 flex-shrink-0 ml-3">
+                  <span className={`apk-tech-tag border ${getStatusBadgeStyles(order.status)}`}>
                     {getStatusLabel(order.status)}
                   </span>
-                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#111111] transform group-hover:translate-x-0.5 transition-all" />
+                  <ArrowRight className="w-4 h-4 text-zinc-300 group-hover:text-[#111111] transform group-hover:translate-x-0.5 transition-all" />
                 </div>
               </div>
             ))
